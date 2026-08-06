@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isValidEmail, createMailer, createRateLimiter } from '../lib/mailer.js';
+import { isValidEmail, createMailer, createRateLimiter, maskeraAdresser } from '../lib/mailer.js';
 
 // KRAV-16: kvitto per e-post
 
@@ -62,6 +62,31 @@ test('sendReceipt bifogar kvittot som PDF och sammanfattar i texten', async () =
   assert.equal(attachment.contentType, 'application/pdf');
   assert.equal(attachment.filename, 'Kvitto-Anna-Andersson-Testtavlingen.pdf');
   assert.equal(attachment.content.subarray(0, 5).toString(), '%PDF-');
+});
+
+// KRAV-16: SMTP-fel innehåller ofta mottagaradressen ("550 <adress>: Recipient
+// address rejected"). Tjänsten gallrar personuppgifter efter 90 dagar, men
+// loggarna sparas separat och obegränsat – adressen ska inte hamna där i klartext.
+test('maskeraAdresser döljer e-postadresser i felmeddelanden', () => {
+  assert.equal(
+    maskeraAdresser('550 5.1.1 <loparen@example.org>: Recipient address rejected'),
+    '550 5.1.1 <l***n@example.org>: Recipient address rejected'
+  );
+  assert.equal(
+    maskeraAdresser('Invalid login: 535 for postmaster@mg.klubben.se'),
+    'Invalid login: 535 for p***r@mg.klubben.se'
+  );
+});
+
+test('maskeraAdresser behåller domänen så felet går att felsöka', () => {
+  const maskerad = maskeraAdresser('rejected: anna.andersson@ok-skogen.se');
+  assert.match(maskerad, /ok-skogen\.se/, 'domänen behövs för att förstå felet');
+  assert.ok(!maskerad.includes('anna.andersson'), 'men inte vem det gäller');
+});
+
+test('maskeraAdresser rör inte text utan adresser', () => {
+  const text = 'Connection timeout after 30000 ms';
+  assert.equal(maskeraAdresser(text), text);
 });
 
 test('rate limiter släpper igenom upp till max och stoppar sedan', () => {

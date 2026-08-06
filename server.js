@@ -6,7 +6,7 @@ import { applyMop } from './lib/mop.js';
 import { applyIof } from './lib/iof.js';
 import { buildReceipt, searchCompetitors } from './lib/receipt.js';
 import { renderReceiptPdf, receiptFilename } from './lib/pdf.js';
-import { isValidEmail, createRateLimiter } from './lib/mailer.js';
+import { isValidEmail, createRateLimiter, maskeraAdresser } from './lib/mailer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -218,8 +218,9 @@ export function createApp({
       res.json({ ok: true, sent: to });
     } catch (err) {
       // Leverantörens felmeddelanden kan innehålla konto- och serverdetaljer –
-      // logga dem, men skicka aldrig vidare dem till klienten.
-      console.error('Kunde inte skicka kvitto per e-post:', err.message);
+      // logga dem, men skicka aldrig vidare dem till klienten. Adresserna
+      // maskeras: loggen lever kvar långt efter att tävlingsdatan gallrats.
+      console.error('Kunde inte skicka kvitto per e-post:', maskeraAdresser(err.message));
       res.status(502).json({ error: 'Kvittot kunde inte mejlas just nu. Försök igen senare.' });
     }
   });
