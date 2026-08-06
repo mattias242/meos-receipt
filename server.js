@@ -14,8 +14,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  *  - GET  /api/*: JSON-API för kvittosidan
  *  - statiska filer i public/
  */
-export function createApp({ dataDir = null, password = '', saveDelayMs = 2000 } = {}) {
-  const store = createStore({ dataDir, saveDelayMs });
+export function createApp({
+  dataDir = null,
+  password = '',
+  saveDelayMs = 2000,
+  retentionDays = 90,
+  now = undefined,
+} = {}) {
+  const store = createStore({ dataDir, saveDelayMs, retentionDays, now });
   const app = express();
   app.disable('x-powered-by');
 

@@ -5,12 +5,14 @@ import { lanUrls } from './lib/lan.js';
 const port = parseInt(process.env.PORT || '3000', 10);
 const dataDir = process.env.DATA_DIR || './data';
 const password = process.env.MEOS_PASSWORD || '';
+// KRAV-14: gallring av tävlingsdata. 0 stänger av den.
+const retentionDays = parseInt(process.env.RETENTION_DAYS ?? '90', 10);
 
 if (!password) {
   console.warn('VARNING: MEOS_PASSWORD är inte satt – alla kan skicka data till /meos.');
 }
 
-const app = createApp({ dataDir, password });
+const app = createApp({ dataDir, password, retentionDays });
 app.listen(port, () => {
   console.log(`MeOS digitalt kvitto lyssnar på http://localhost:${port}`);
   console.log('MeOS onlineresultat (MOP) tas emot på POST /meos, resultatfiler på POST /iof');

@@ -79,6 +79,11 @@ Given('att tjänsten är igång med datalagring', async function () {
   await start(this, { dataDir: this.dataDir, saveDelayMs: 10 });
 });
 
+Given('att tjänsten är igång med datalagring utan gallring', async function () {
+  this.dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-bdd-'));
+  await start(this, { dataDir: this.dataDir, saveDelayMs: 10, retentionDays: 0 });
+});
+
 Given('att MeOS har skickat en komplett tävling med tävlings-id {int}', async function (cmp) {
   assert.equal(await postMop(this, MOP_COMPLETE, { competition: String(cmp) }), 'OK');
 });
@@ -169,6 +174,19 @@ When('jag söker på {string}', async function (q) {
 
 When('tjänsten startas om med samma datalagring', async function () {
   await start(this, this.appOpts);
+});
+
+// Gallringen (KRAV-14) testas genom att flytta fram klockan i stället för att
+// vänta – store:t läser tiden via now().
+When('tjänsten startas om {int} dagar senare', async function (days) {
+  const offset = days * 24 * 60 * 60 * 1000;
+  await start(this, { ...this.appOpts, now: () => Date.now() + offset });
+});
+
+When('tjänsten startas om utan tidsförskjutning', async function () {
+  // Gallringen sparas debouncat (saveDelayMs) – låt skrivningen nå disken.
+  await new Promise((r) => setTimeout(r, 50));
+  await start(this, { ...this.appOpts, now: undefined });
 });
 
 // ---------------------------------------------------------------------------
