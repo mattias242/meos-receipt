@@ -117,6 +117,7 @@ function renderReceipt(r) {
     ${res.preliminary ? '<div class="prel">Preliminärt resultat – ej fastställt</div>' : ''}
     ${place}
     ${res.after ? `<div class="place">Efter segraren: ${esc(res.after)}</div>` : ''}
+    ${res.teamTime ? `<div class="place">Lagets tid: <strong>${esc(res.teamTime)}</strong></div>` : ''}
     <hr />
     <table>
       <tr><th scope="row">Starttid</th><td class="num">${esc(res.startTime) || '–'}</td></tr>

@@ -96,6 +96,45 @@ test('lagets medlemmar läses in per sträcka', () => {
   assert.equal(store.competitions[1].teams[7].name, 'OK Skogen 1');
 });
 
+// KRAV-3: en stafettlöpares egen sträcktid säger inte hur laget ligger till.
+// MOP skickar tiden från tidigare sträckor i `input`; enligt specen är lagets
+// totaltid löptiden plus den, och gäller bara när totalstatusen är OK.
+function stafettMedInput({ it = 12000, tstat = 1 } = {}) {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<MOPComplete xmlns="http://www.melin.nu/mop">
+  <competition date="2026-08-06" organizer="Testklubben OK">Stafetten</competition>
+  <cls id="3" ord="3">H21 Stafett</cls>
+  <org id="5" nat="SWE">OK Skogen</org>
+  <cmp id="42" card="888888">
+    <base org="5" cls="3" stat="1" st="372000" rt="13000">Frida Etapp</base>
+    <input it="${it}" tstat="${tstat}"/>
+  </cmp>
+</MOPComplete>`;
+}
+
+test('kvittot visar lagets tid för en stafettlöpare', () => {
+  const store = createStore();
+  applyMop(store, 1, stafettMedInput());
+  const r = buildReceipt(store.competitions[1], 1, 42);
+  assert.equal(r.result.time, '21:40', 'den egna sträckan');
+  assert.equal(r.result.teamTime, '41:40', 'lagets tid: 1300 s + 1200 s');
+});
+
+test('lagets tid visas inte när totalstatusen inte är OK', () => {
+  const store = createStore();
+  // tstat 3 = felstämpling på någon tidigare sträcka
+  applyMop(store, 1, stafettMedInput({ tstat: 3 }));
+  const r = buildReceipt(store.competitions[1], 1, 42);
+  assert.equal(r.result.time, '21:40');
+  assert.equal(r.result.teamTime, '', 'specen: totaltiden gäller bara när totalstatusen är OK');
+});
+
+test('en individuell löpare får ingen lagtid', () => {
+  const store = createStore();
+  applyMop(store, 1, MOP_STAFETT);
+  assert.equal(buildReceipt(store.competitions[1], 1, 41).result.teamTime, '');
+});
+
 // ---------------------------------------------------------------------------
 // Avanmälan (KRAV-2): MOP:s delete-attribut
 // ---------------------------------------------------------------------------
