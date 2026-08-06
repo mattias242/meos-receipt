@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#1a3c2e" />
+<title>Digitalt kvitto – MeOS</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header>
+  <h1>Digitalt kvitto</h1>
+  <p class="sub">Ange ditt SportIdent-nummer och se din sträcktidsutläsning direkt i mobilen.</p>
+</header>
+
+<main>
+  <form id="searchForm" autocomplete="off">
+    <select id="cmpSelect" hidden aria-label="Välj tävling"></select>
+    <div class="searchRow">
+      <input id="query" type="text" inputmode="numeric"
+             placeholder="SportIdent-nummer eller namn" required />
+      <button type="submit">Visa</button>
+    </div>
+  </form>
+
+  <div id="message" class="message" hidden></div>
+  <ul id="hits" class="hits" hidden></ul>
+
+  <article id="receipt" class="receipt" hidden></article>
+</main>
+
+<footer>
+  Resultatdata via <a href="https://www.melin.nu/meos" target="_blank" rel="noopener">MeOS</a> onlineprotokoll.
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

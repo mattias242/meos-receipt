@@ -1,0 +1,23 @@
+# Körning i container på egen server/NAS (Synology Container Manager,
+# QNAP Container Station, Unraid, TrueNAS m.fl. läser denna fil direkt).
+#
+#   MEOS_PASSWORD=hemligt docker compose up -d --build
+#
+# Tävlingsdata sparas i ./data på värden och överlever omstarter.
+services:
+  meos-kvitto:
+    build: .
+    container_name: meos-kvitto
+    # Nås containern via en omvänd proxy (nginx) på ett delat Docker-nätverk
+    # kan port-mappningen tas bort och nätverket anges i stället, t.ex.:
+    #   networks: [proxy]
+    # OBS: sätt client_max_body_size 32m; i nginx för värdnamnet, annars
+    # stoppas större MeOS-sändningar (nginx standard är 1 MB).
+    ports:
+      - "3000:3000"
+    environment:
+      MEOS_PASSWORD: ${MEOS_PASSWORD:?Sätt MEOS_PASSWORD, t.ex. i en .env-fil}
+      DATA_DIR: /data
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

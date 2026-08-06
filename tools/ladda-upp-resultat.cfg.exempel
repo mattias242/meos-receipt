@@ -1,0 +1,8 @@
+# Installningar for ladda-upp-resultat.bat.
+# Kopiera denna fil till "ladda-upp-resultat.cfg" i samma mapp som .bat-filen
+# och fyll i vardena - darefter racker det att dubbelklicka pa .bat-filen.
+FIL=C:\meos\resultat.xml
+URL=https://din-server.example
+CMP=1
+LOSEN=
+INTERVALL=10

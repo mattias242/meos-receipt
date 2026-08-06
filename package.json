@@ -1,0 +1,29 @@
+{
+  "name": "meos-receipt",
+  "version": "0.1.0",
+  "description": "Digitalt kvitto för MeOS – visa din stämplingsutläsning i mobilen",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "test": "node --test",
+    "bdd": "cucumber-js",
+    "verify": "npm test && npm run bdd",
+    "build:exe": "node tools/bygg-exe.mjs",
+    "build:exe:win": "node tools/bygg-exe.mjs --windows"
+  },
+  "engines": {
+    "node": ">=18.18"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "fast-xml-parser": "^4.4.1"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^13.2.1",
+    "esbuild": "^0.28.1",
+    "postject": "^1.0.0-alpha.6"
+  }
+}

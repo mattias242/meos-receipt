@@ -1,0 +1,199 @@
+:root {
+  --bg: #eef1ee;
+  --ink: #1c211d;
+  --accent: #1a3c2e;
+  --paper: #fffdf7;
+  --muted: #6b736c;
+  --line: #d8dcd8;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  background: var(--accent);
+  color: #fff;
+  padding: 1.2rem 1rem 1rem;
+  text-align: center;
+}
+header h1 { margin: 0; font-size: 1.4rem; letter-spacing: 0.02em; }
+header .sub { margin: 0.4rem auto 0; max-width: 26rem; font-size: 0.85rem; opacity: 0.85; }
+
+main {
+  flex: 1;
+  width: 100%;
+  max-width: 30rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+#searchForm select {
+  width: 100%;
+  padding: 0.6rem;
+  margin-bottom: 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  background: #fff;
+}
+
+.searchRow { display: flex; gap: 0.5rem; }
+.searchRow input {
+  flex: 1;
+  padding: 0.7rem 0.8rem;
+  font-size: 1.05rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+.searchRow button {
+  padding: 0.7rem 1.2rem;
+  font-size: 1.05rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+.searchRow button:active { opacity: 0.85; }
+
+.message {
+  margin-top: 1rem;
+  padding: 0.8rem 1rem;
+  background: #fff4e5;
+  border: 1px solid #f0ddc0;
+  border-radius: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.hits {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+.hits li {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.hits button {
+  width: 100%;
+  text-align: left;
+  padding: 0.7rem 0.9rem;
+  font-size: 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.hits .meta { display: block; color: var(--muted); font-size: 0.85rem; margin-top: 0.15rem; }
+
+/* --- Kvittot ------------------------------------------------------------ */
+.receipt {
+  margin-top: 1.2rem;
+  background: var(--paper);
+  border-radius: 0.4rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+  padding: 1.2rem 1.1rem 1.6rem;
+  font-family: "SF Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 0.9rem;
+  position: relative;
+}
+.receipt::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -8px; height: 8px;
+  background:
+    linear-gradient(-45deg, transparent 70%, var(--paper) 70%) 0 0 / 12px 8px repeat-x,
+    linear-gradient(45deg, transparent 70%, var(--paper) 70%) 6px 0 / 12px 8px repeat-x;
+}
+
+.receipt .cmpName { text-align: center; font-weight: 700; font-size: 1rem; }
+.receipt .cmpMeta { text-align: center; color: var(--muted); margin-top: 0.15rem; }
+.receipt hr { border: none; border-top: 1px dashed #b9beb9; margin: 0.8rem 0; }
+
+.receipt .runnerName { font-size: 1.15rem; font-weight: 700; }
+.receipt .runnerMeta { color: var(--muted); margin-top: 0.15rem; }
+
+.receipt table { width: 100%; border-collapse: collapse; margin-top: 0.3rem; }
+.receipt td, .receipt th { padding: 0.22rem 0; vertical-align: top; }
+.receipt th { text-align: left; font-weight: 400; color: var(--muted); }
+.receipt td.num, .receipt th.num { text-align: right; white-space: nowrap; }
+
+.receipt .bigTime {
+  text-align: center;
+  font-size: 1.9rem;
+  font-weight: 700;
+  margin: 0.5rem 0 0.1rem;
+  letter-spacing: 0.03em;
+}
+.receipt .status {
+  text-align: center;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.receipt .status.ok { color: #1a7a3c; }
+.receipt .status.bad { color: #b03030; }
+.receipt .status.pending { color: #b07a20; }
+.receipt .place { text-align: center; margin-top: 0.3rem; }
+.receipt .prel { text-align: center; color: #b07a20; font-size: 0.8rem; margin-top: 0.2rem; }
+
+.receipt .splitsHead th { border-bottom: 1px solid var(--line); padding-bottom: 0.3rem; }
+.receipt .badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.05rem 0.35rem;
+  border-radius: 0.6rem;
+  vertical-align: middle;
+}
+.receipt .badge.miss { background: #b03030; color: #fff; }
+.receipt .badge.extra { background: #d8dcd8; color: #444; }
+.receipt .missRow td { color: #b03030; }
+.receipt .updated { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 1rem; }
+
+.shareRow { text-align: center; margin-top: 1.4rem; }
+.shareRow button {
+  background: none;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  border-radius: 2rem;
+  padding: 0.5rem 1.2rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+footer {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+  padding: 1.5rem 1rem 2rem;
+}
+footer a { color: inherit; }
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161a17;
+    --ink: #e7ebe7;
+    --paper: #20261f;
+    --muted: #9aa39b;
+    --line: #39413a;
+  }
+  #searchForm select, .searchRow input, .hits li { background: #242b25; color: var(--ink); }
+  .message { background: #33291a; border-color: #4d3d22; }
+  .hits button { color: var(--ink); }
+  .receipt { box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+  .receipt .status.ok { color: #5ec783; }
+  .receipt .status.bad { color: #e07a7a; }
+  .shareRow button { border-color: #5ec783; color: #5ec783; }
+}
