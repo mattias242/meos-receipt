@@ -72,6 +72,52 @@ test('en läsbar datafil lämnas orörd', async (t) => {
   );
 });
 
+// KRAV-8: misslyckas sparningen – full disk, fel rättigheter, trasig volym –
+// loggades det bara. Tjänsten fortsatte svara att allt var bra, och hela
+// tävlingen kunde köras med data som bara fanns i minnet. Det märktes först
+// vid omstarten, när allt var borta.
+test('sparfel syns i store-status', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-spar-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  // Lägg en fil där datakatalogen ska vara – då går den inte att skriva i
+  const somFil = path.join(dir, 'blockerad');
+  fs.writeFileSync(somFil, 'inte en katalog');
+
+  const fel = [];
+  const original = console.error;
+  console.error = (...a) => fel.push(a.join(' '));
+  t.after(() => { console.error = original; });
+
+  const store = createStore({ dataDir: somFil, saveDelayMs: 5 });
+  assert.equal(store.status().sparfel, null, 'inget fel innan något sparats');
+
+  store.getCompetition(1).info.name = 'Tävling';
+  store.touch(1);
+  await new Promise((r) => setTimeout(r, 60));
+
+  const status = store.status();
+  assert.ok(status.sparfel, 'sparfelet ska gå att fråga efter, inte bara loggas');
+  assert.match(status.sparfel, /\w/);
+  assert.ok(fel.length > 0, 'och fortfarande loggas');
+});
+
+test('lyckad sparning nollställer sparfelet', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-spar-ok-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  const store = createStore({ dataDir: dir, saveDelayMs: 5 });
+  store.getCompetition(1).info.name = 'Tävling';
+  store.touch(1);
+  await waitFor(() => fs.existsSync(path.join(dir, 'competitions.json')));
+  assert.equal(store.status().sparfel, null);
+});
+
+test('utan datakatalog rapporteras ingen persistens', () => {
+  const store = createStore();
+  assert.equal(store.status().persistens, false, 'körs bara i minnet');
+  assert.equal(store.status().sparfel, null);
+});
+
 // KRAV-9: sätts MeOS och uppladdningsprogrammet till olika tävlings-id hamnar
 // inflödena i var sin tävling. Allt svarar OK, men placeringen räknas på bara
 // den delmängd av fältet som hamnat där. Kontrollen ligger i store och inte i

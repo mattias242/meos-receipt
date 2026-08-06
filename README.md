@@ -146,7 +146,9 @@ att data faktiskt kommer fram – inte bara att programmen är igång:
 ```bash
 # Tjänsten svarar, och e-post är på om ni tänkt använda det
 curl https://din-server.example/api/health
-# -> {"ok":true,"competitions":1,"email":true}
+# -> {"ok":true,"competitions":1,"email":true,"persistens":true}
+# Finns fältet "sparfel" med når data inte disken – allt ligger bara i minnet
+# och försvinner vid omstart.
 
 # Tävlingen har kommit in från MeOS
 curl https://din-server.example/api/competitions
@@ -175,6 +177,7 @@ för hela stämplingslistan har resultatfilen inte nått fram – se punkt 3.
 | Löparen hittar inte sitt kvitto | Sök på namn i stället; delad bricka ger en valbar lista. |
 | "Sökningen gav N träffar" | Sökningen matchade fler än 100 – skriv mer av namnet. |
 | Mejlformuläret syns inte | `MAILGUN_*` saknas på servern; `/api/health` visar `email: false`. |
+| `sparfel` i `/api/health` | Data kan inte skrivas till disk (full disk, fel rättigheter, trasig volym). Tjänsten fungerar, men allt försvinner vid omstart. |
 
 Tävlingsdata ligger kvar i 90 dagar och gallras sedan automatiskt
 (`RETENTION_DAYS`). Startas MeOS Onlineresultat om mitt under tävlingen
@@ -236,7 +239,7 @@ e-postutskicket avstängt: mejlformuläret döljs och endpointen svarar `503`.
 | `GET /api/receipt?id=<löpar-id>&cmp=N` | Kvitto via MeOS löpar-id (delningslänk). |
 | `GET /api/receipt.pdf?...` | Samma parametrar som `/api/receipt`, men kvittot som PDF-remsa 100 mm bred (KRAV-15). |
 | `POST /api/receipt/email` | Mejlar kvittot som PDF-bilaga. JSON-body med `email` plus `card` eller `id`/`cmp` (KRAV-16). |
-| `GET /api/health` | Hälsokontroll. Fältet `email` anger om e-postutskick är konfigurerat. |
+| `GET /api/health` | Hälsokontroll. `email` anger om e-postutskick är konfigurerat, `persistens` om en datakatalog används, och `sparfel` finns med bara när data inte kan skrivas till disk. |
 
 ## Deployment (container på egen NAS/server)
 

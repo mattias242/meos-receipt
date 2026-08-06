@@ -225,10 +225,16 @@ export function createApp({
   });
 
   app.get('/api/health', (req, res) => {
+    const { persistens, sparfel } = store.status();
     res.json({
+      // ok betyder "tjänsten svarar" och förblir true även när sparningen
+      // krånglar – annars skulle en övervakare kunna starta om maskinen och
+      // radera just den data som inte hunnit till disken.
       ok: true,
       competitions: store.listCompetitions().length,
       email: Boolean(mailer), // styr om kvittosidan visar mejlformuläret
+      persistens,
+      ...(sparfel ? { sparfel } : {}),
     });
   });
 

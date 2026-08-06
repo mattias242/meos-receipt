@@ -44,7 +44,20 @@ else
   fel "Ingen tävling inläst – MeOS Onlineresultat har inte skickat något hit"
 fi
 
-# 3. Är e-postutskick påslaget?
+# 3. Når data faktiskt disken? Ett sparfel märks annars först vid omstarten,
+#    när hela tävlingen är borta.
+case "$halsa" in
+  *'"sparfel"'*)
+    fel "Tävlingsdata kan inte sparas till disk – allt ligger bara i minnet"
+    printf '      %s\n' "$(printf '%s' "$halsa" | sed -n 's/.*"sparfel":"\([^"]*\)".*/\1/p')"
+    ;;
+  *'"persistens":false'*)
+    varna "Ingen datakatalog (DATA_DIR) – data försvinner vid omstart"
+    ;;
+  *) ok "Tävlingsdata sparas till disk" ;;
+esac
+
+# 4. Är e-postutskick påslaget?
 case "$halsa" in
   *'"email":true'*)  ok "E-postutskick konfigurerat" ;;
   *) varna "E-postutskick avstängt (MAILGUN_* saknas) – kvittot kan inte mejlas" ;;
