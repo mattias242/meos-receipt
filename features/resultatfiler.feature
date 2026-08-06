@@ -60,6 +60,12 @@ Egenskap: Resultatfiler från MeOS resultatautomat
     Och stämplingen "32" saknar tider
     Och sträckan "45" har sträcktid "10:00", totaltid "15:00" och klocktid "10:15:00"
 
+  Scenario: Efteranmäld löpare i resultatfilen blir inte dubblett
+    Givet att resultatautomaten har laddat upp en resultatfil
+    När MeOS skickar en diff där "Frida Frisk" med bricka 333333 anmäls i klassen "D21"
+    Så visar kvittot för bricka 333333 löparen "Frida Frisk"
+    Och innehåller kvittot för bricka 333333 stämplingarna "31"
+
   Scenario: Radiotider visas som tidigare när ingen resultatfil finns
     När jag hämtar kvittot för bricka 123456
     Så innehåller kvittot sträckorna "Radio 1, Förvarning, Mål"

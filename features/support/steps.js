@@ -189,6 +189,15 @@ When('MeOS skickar zip-komprimerad data', async function () {
   await postMop(this, 'PK\x03\x04zipdata');
 });
 
+When(
+  'MeOS skickar en diff där {string} med bricka {int} anmäls i klassen {string}',
+  async function (name, card, clsName) {
+    const cls = clsName === 'D21' ? 2 : 1;
+    // Eget id, som MeOS skulle ge en efteranmäld löpare
+    await postMop(this, mopDiffExtraRunner({ id: 55, name, card, cls }));
+  }
+);
+
 When('MeOS skickar en diff där {string} går i mål', async function (name) {
   assert.ok(MOP_DIFF_CARL.includes(name), `fixturen saknar ${name}`);
   await postMop(this, MOP_DIFF_CARL);

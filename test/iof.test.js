@@ -206,6 +206,53 @@ test('MOPComplete nollställer fortfarande MOP-ägd data', async (t) => {
   assert.equal(res.status, 404, 'löparen fanns inte i den nya sändningen');
 });
 
+// KRAV-9: en löpare som bara finns i resultatfilen får ett påhittat id. Kommer
+// samma bricka senare från MeOS – vanligt vid efteranmälan – fanns hen plötsligt
+// två gånger, och kvitto-API:t svarade med en "delad bricka"-lista med två
+// identiska namn där den ena posten hade stämplingarna och den andra tiderna.
+test('efteranmäld löpare ersätter platshållaren från resultatfilen', async (t) => {
+  const { base, server } = await startServer();
+  t.after(() => server.close());
+  assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
+  assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
+
+  // Frida finns bara i resultatfilen och har fått ett påhittat id
+  const före = await (await fetch(`${base}/api/receipt?card=333333`)).json();
+  assert.equal(före.runner.name, 'Frida Frisk');
+
+  // MeOS skickar henne som efteranmälan med sitt eget id
+  const diff = `<?xml version="1.0"?><MOPDiff xmlns="http://www.melin.nu/mop">
+    <cmp id="55" card="333333"><base org="5" cls="2" stat="1" st="363000" rt="24000">Frida Frisk</base></cmp>
+  </MOPDiff>`;
+  assert.equal(await post(base, '/meos', diff), 'OK');
+
+  const res = await fetch(`${base}/api/receipt?card=333333`);
+  assert.equal(res.status, 200, 'ska inte bli en "delad bricka"-lista');
+  const efter = await res.json();
+  assert.equal(efter.runner.id, 55, 'MeOS-löparen ska ta över');
+  assert.equal(efter.result.time, '40:00', 'med MeOS tider');
+  assert.deepEqual(
+    efter.splits.map((s) => s.name),
+    ['31', 'Mål'],
+    'och ärva stämplingarna från resultatfilen'
+  );
+});
+
+test('två löpare som verkligen delar bricka påverkas inte', async (t) => {
+  const { base, server } = await startServer();
+  t.after(() => server.close());
+  assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
+  // Två MeOS-löpare med samma bricka är legitimt (KRAV-7)
+  const diff = `<?xml version="1.0"?><MOPDiff xmlns="http://www.melin.nu/mop">
+    <cmp id="60" card="123456"><base org="5" cls="2" stat="0" st="0" rt="0">Erik Ek</base></cmp>
+  </MOPDiff>`;
+  assert.equal(await post(base, '/meos', diff), 'OK');
+
+  const res = await fetch(`${base}/api/receipt?card=123456`);
+  assert.equal(res.status, 300, 'delad bricka ska fortfarande ge en valbar lista');
+  assert.equal((await res.json()).alternatives.length, 2);
+});
+
 test('IOF-endpoint kräver rätt lösenord', async (t) => {
   const { server, base } = await startServer({ password: 'hemligt' });
   t.after(() => server.close());
