@@ -19,6 +19,8 @@ grönt.
 | KRAV-6 | Ett bricknummer som inte finns i den senaste tävlingen men i en tidigare inläst tävling ger ändå träff (senaste tävling där brickan förekommer). | `features/sokning.feature` |
 | KRAV-7 | Om flera löpare delar samma bricka i en tävling svarar kvitto-API:t med en valbar träfflista i stället för att gissa. | `features/kvitto.feature` |
 | KRAV-8 | Inläst tävlingsdata överlever en omstart av tjänsten. | `features/persistens.feature` |
+| KRAV-9 | Tjänsten tar emot resultatfiler i IOF XML 3.0 (ResultList med sträcktider), exporterade av MeOS resultatautomat, via `POST /iof` med samma autentisering som MOP. Löpare matchas mot befintlig MOP-data via bricknummer; löpare som bara finns i resultatfilen skapas. | `features/resultatfiler.feature` |
+| KRAV-10 | När en resultatfil är inläst visar kvittot samtliga stämplingar i banordning — inklusive saknade kontroller (felstämpling) och extra stämplingar — med sträck-, total- och klocktid, samt starttid och måltid. Utan resultatfil visas radiotider som tidigare. | `features/resultatfiler.feature` |
 
 ## Arbetssätt
 
@@ -32,7 +34,8 @@ grönt.
 ## Avgränsningar
 
 - MOP-protokollet innehåller endast radiotider. Kompletta stämplingar per
-  kontroll skickas inte av MeOS, så kvittot visar mellantider vid
-  radiokontroller samt måltid.
+  kontroll skickas inte av MeOS den vägen; för fullständiga kvitton med alla
+  stämplingar (inkl. felstämplade och saknade) kompletteras MOP med
+  resultatfiler från MeOS resultatautomat (KRAV-9/KRAV-10).
 - Zip-komprimerade sändningar stöds inte; tjänsten svarar `NOZIP` vilket får
   MeOS att sända om okomprimerat (samma beteende som referensimplementationen).

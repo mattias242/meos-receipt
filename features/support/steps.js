@@ -10,6 +10,7 @@ import {
   mopDiffExtraRunner,
   mopCompleteMinimal,
 } from '../../test/fixtures/mop.js';
+import { IOF_RESULTLIST } from '../../test/fixtures/iof.js';
 
 setDefaultTimeout(10000);
 
@@ -34,8 +35,8 @@ async function stop(world) {
   }
 }
 
-async function postMop(world, xml, headers = {}) {
-  const res = await fetch(`${world.base}/meos`, {
+async function postXml(world, url, xml, headers = {}) {
+  const res = await fetch(`${world.base}${url}`, {
     method: 'POST',
     headers: { 'content-type': 'application/xml', competition: '1', ...headers },
     body: xml,
@@ -43,6 +44,9 @@ async function postMop(world, xml, headers = {}) {
   world.reply = await res.text();
   return world.reply;
 }
+
+const postMop = (world, xml, headers) => postXml(world, '/meos', xml, headers);
+const postIof = (world, xml, headers) => postXml(world, '/iof', xml, headers);
 
 async function getJson(world, url) {
   const res = await fetch(`${world.base}${url}`);
@@ -111,9 +115,21 @@ Given('att all data har sparats till disk', async function () {
   }
 });
 
+Given('att resultatautomaten har laddat upp en resultatfil', async function () {
+  assert.equal(await postIof(this, IOF_RESULTLIST), 'OK');
+});
+
 // ---------------------------------------------------------------------------
 // När
 // ---------------------------------------------------------------------------
+
+When('resultatautomaten laddar upp en resultatfil', async function () {
+  await postIof(this, IOF_RESULTLIST);
+});
+
+When('resultatautomaten laddar upp en resultatfil med lösenordet {string}', async function (pwd) {
+  await postIof(this, IOF_RESULTLIST, { pwd });
+});
 
 When('MeOS skickar en komplett tävling med tävlings-id {int}', async function (cmp) {
   await postMop(this, MOP_COMPLETE, { competition: String(cmp) });
@@ -231,6 +247,24 @@ Then(
     assert.equal(split.clock, clock);
   }
 );
+
+Then('innehåller kvittot stämplingarna {string}', function (names) {
+  const expected = names.split(',').map((s) => s.trim());
+  assert.deepEqual(this.res.body.splits.map((s) => s.name), expected);
+});
+
+Then('stämplingen {string} är markerad som saknad', function (name) {
+  const split = this.res.body.splits.find((s) => s.name === name);
+  assert.ok(split, `stämplingen ${name} saknas i kvittot`);
+  assert.equal(split.status, 'missing');
+  assert.equal(split.elapsed, '', 'en saknad stämpling ska inte ha någon tid');
+});
+
+Then('stämplingen {string} är markerad som extra', function (name) {
+  const split = this.res.body.splits.find((s) => s.name === name);
+  assert.ok(split, `stämplingen ${name} saknas i kvittot`);
+  assert.equal(split.status, 'additional');
+});
 
 Then('kvittot är markerat som preliminärt', function () {
   assert.equal(this.res.body.result.preliminary, true);
