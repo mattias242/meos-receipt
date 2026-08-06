@@ -165,6 +165,32 @@ test('åldern räknas från senast mottagna data', async (t) => {
   );
 });
 
+// Felmeddelandena är det enda en löpare med en trasig länk har att gå på, och
+// de måste skilja på "du angav inget att söka med" och "jag hittade ingen".
+test('kvitto-API:t förklarar vad som saknas', async (t) => {
+  const { server, base } = await startServer();
+  t.after(() => server.close());
+
+  // Innan någon tävling kommit in är det tjänsten som saknar data
+  let res = await fetch(`${base}/api/receipt?card=123456`);
+  assert.equal(res.status, 404);
+  assert.match((await res.json()).error, /Ingen tävling/);
+
+  await postMop(base, MOP_COMPLETE);
+
+  // Utan sökparametrar, eller med sådana som inte är bricknummer
+  for (const query of ['', '?card=0', '?card=abc', '?id=0']) {
+    res = await fetch(`${base}/api/receipt${query}`);
+    assert.equal(res.status, 400, `förväntade 400 för ${query || '(inga parametrar)'}`);
+    assert.match((await res.json()).error, /Ange bricknummer/);
+  }
+
+  // Ett giltigt bricknummer som ingen har
+  res = await fetch(`${base}/api/receipt?card=999999`);
+  assert.equal(res.status, 404);
+  assert.match((await res.json()).error, /999999/, 'felet ska nämna vad som söktes');
+});
+
 test('MOPDiff updates a competitor and marks result preliminary', async (t) => {
   const { server, base } = await startServer();
   t.after(() => server.close());
