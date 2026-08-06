@@ -267,7 +267,26 @@ fly volumes create meos_data --size 1
 fly deploy
 ```
 
-`fly.toml` monterar volymen på `/data` och sätter `DATA_DIR=/data`.
+`fly.toml` monterar volymen på `/data`, sätter `DATA_DIR=/data` och
+`RETENTION_DAYS=90`.
+
+Vill du kunna mejla kvitton måste Mailgun-uppgifterna sättas som secrets –
+`fly.toml` innehåller dem medvetet inte, eftersom filen checkas in:
+
+```bash
+fly secrets set \
+  MAILGUN_SMTP=smtp.eu.mailgun.org \
+  MAILGUN_USER=kvitto@mg.dinklubb.se \
+  MAILGUN_PWD=ditt-smtp-lösenord
+```
+
+Kontrollera efteråt att de gick fram — `curl https://din-app.fly.dev/api/health`
+ska visa `"email": true`. Saknas de startar tjänsten utan mejlfunktion, utan
+att något annat ser fel ut.
+
+Maskinen stoppas automatiskt när trafiken upphör (`auto_stop_machines`) och
+startar igen vid nästa anrop. Tävlingsdata ligger på volymen och överlever, men
+räkna med någon sekunds fördröjning på första anropet efter en tyst period.
 
 ## Krav
 

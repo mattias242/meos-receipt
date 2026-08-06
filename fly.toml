@@ -7,6 +7,11 @@ primary_region = "arn"
 [env]
   PORT = "3000"
   DATA_DIR = "/data"
+  RETENTION_DAYS = "90"
+
+# MEOS_PASSWORD och MAILGUN_* sätts som secrets (fly secrets set), inte här –
+# den här filen checkas in. Saknas Mailgun-uppgifterna startar tjänsten utan
+# e-postutskick; kontrollera med /api/health efter deploy.
 
 [[mounts]]
   source = "meos_data"
