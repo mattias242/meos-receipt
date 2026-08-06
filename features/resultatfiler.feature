@@ -39,6 +39,19 @@ Egenskap: Resultatfiler från MeOS resultatautomat
     När jag hämtar kvittot för bricka 333333
     Så visar kvittot löparen "Frida Frisk" i klubben "OK Skogen" och klassen "D21"
 
+  Scenario: Den som brutit utan att stämpla får ingen tabell med bara streck
+    Givet att resultatautomaten har laddat upp en resultatfil
+    När jag hämtar kvittot för bricka 222222
+    Så visar kvittot status "Utgått"
+    Och kvittot innehåller inga stämplingar
+
+  Scenario: Den som brutit efter några kontroller ser sina stämplingar
+    Givet att resultatautomaten har laddat upp en resultatfil
+    När jag hämtar kvittot för bricka 555555
+    Så visar kvittot status "Utgått"
+    Och innehåller kvittot stämplingarna "31, 32, 45"
+    Och stämplingen "45" är markerad som saknad
+
   Scenario: Radiotider visas som tidigare när ingen resultatfil finns
     När jag hämtar kvittot för bricka 123456
     Så innehåller kvittot sträckorna "Radio 1, Förvarning, Mål"

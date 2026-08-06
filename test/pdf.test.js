@@ -150,6 +150,28 @@ test('tecken utanför latin1 ger en läsbar PDF i stället för trasiga bytes', 
   assert.ok(text.includes('??'), 'tecken utanför latin1 ersätts');
 });
 
+// KRAV-10: startad men utan registrerade stämplingar
+test('PDF:en förklarar när inga stämplingar registrerats', () => {
+  const utgatt = {
+    ...RECEIPT,
+    result: { ...RECEIPT.result, statusText: 'Utgått', time: '', finishTime: '', place: null, after: '' },
+    splits: [],
+  };
+  const text = receiptLines(utgatt).map((l) => l.text).join('\n');
+  assert.ok(text.includes('Inga stämplingar registrerade'), text);
+  assert.ok(text.includes('Utgått'));
+});
+
+test('kvitto utan starttid får ingen stämplingsnotering', () => {
+  const ejStart = {
+    ...RECEIPT,
+    result: { ...RECEIPT.result, statusText: 'Ej start', time: '', startTime: '', finishTime: '', place: null, after: '' },
+    splits: [],
+  };
+  const text = receiptLines(ejStart).map((l) => l.text).join('\n');
+  assert.ok(!text.includes('Inga stämplingar registrerade'), text);
+});
+
 test('receiptFilename blir ett ASCII-säkert filnamn', () => {
   const name = receiptFilename(RECEIPT);
   assert.equal(name, 'Kvitto-Anna-Andersson-Testtavlingen.pdf');

@@ -117,7 +117,9 @@ function renderReceipt(r) {
         <tr class="splitsHead"><th>Kontroll</th><th class="num">Sträcka</th><th class="num">Total</th><th class="num">Klocka</th></tr>
         ${rows}
       </table>`
-        : ''
+        : res.startTime
+          ? '<hr /><div class="noPunches">Inga stämplingar registrerade</div>'
+          : ''
     }
     <div class="updated">Uppdaterat ${r.updated ? new Date(r.updated).toLocaleTimeString('sv-SE') : '–'}</div>
     <div class="shareRow">

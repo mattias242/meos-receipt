@@ -379,6 +379,10 @@ Then('kvittot visar ingen starttid', function () {
   assert.equal(this.res.body.result.startTime, '');
 });
 
+Then('kvittot innehåller inga stämplingar', function () {
+  assert.deepEqual(this.res.body.splits, []);
+});
+
 Then('kvittot visar starttid {string} och måltid {string}', function (st, ft) {
   assert.equal(this.res.body.result.startTime, st);
   assert.equal(this.res.body.result.finishTime, ft);

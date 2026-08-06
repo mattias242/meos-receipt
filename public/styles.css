@@ -168,6 +168,7 @@ main {
 .receipt .badge.miss { background: #b03030; color: #fff; }
 .receipt .badge.extra { background: #d8dcd8; color: #444; }
 .receipt .missRow td { color: #b03030; }
+.receipt .noPunches { text-align: center; color: var(--muted); }
 .receipt .updated { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 1rem; }
 
 .shareRow {

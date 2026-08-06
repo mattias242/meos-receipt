@@ -8,6 +8,9 @@
  * - Anna Andersson (123456): godkänd, komplett bana + en extra stämpling (77)
  * - Carl Carlsson (111111): felstämplad, kontroll 45 saknas
  * - Frida Frisk (333333): finns inte i MOP-datat alls
+ * - Doris Dahl (222222): utgått utan att stämpla något – MeOS exporterar då
+ *   hela banan som Missing, vilket annars ger ett kvitto med bara streck
+ * - Gustav Grön (555555): utgått efter att ha hunnit två kontroller
  */
 export const IOF_RESULTLIST = `<?xml version="1.0" encoding="UTF-8"?>
 <ResultList xmlns="http://www.orienteering.org/datastandard/3.0" iofVersion="3.0" status="Complete">
@@ -51,6 +54,30 @@ export const IOF_RESULTLIST = `<?xml version="1.0" encoding="UTF-8"?>
   </ClassResult>
   <ClassResult>
     <Class><Id>2</Id><Name>D21</Name></Class>
+    <PersonResult>
+      <Person><Name><Given>Doris</Given><Family>Dahl</Family></Name></Person>
+      <Organisation><Name>OK Skogen</Name></Organisation>
+      <Result>
+        <StartTime>2026-08-06T10:00:00+02:00</StartTime>
+        <Status>DidNotFinish</Status>
+        <SplitTime status="Missing"><ControlCode>31</ControlCode></SplitTime>
+        <SplitTime status="Missing"><ControlCode>32</ControlCode></SplitTime>
+        <SplitTime status="Missing"><ControlCode>45</ControlCode></SplitTime>
+        <ControlCard>222222</ControlCard>
+      </Result>
+    </PersonResult>
+    <PersonResult>
+      <Person><Name><Given>Gustav</Given><Family>Grön</Family></Name></Person>
+      <Organisation><Name>OK Skogen</Name></Organisation>
+      <Result>
+        <StartTime>2026-08-06T10:10:00+02:00</StartTime>
+        <Status>DidNotFinish</Status>
+        <SplitTime><ControlCode>31</ControlCode><Time>420</Time></SplitTime>
+        <SplitTime><ControlCode>32</ControlCode><Time>880</Time></SplitTime>
+        <SplitTime status="Missing"><ControlCode>45</ControlCode></SplitTime>
+        <ControlCard>555555</ControlCard>
+      </Result>
+    </PersonResult>
     <PersonResult>
       <Person><Name><Given>Frida</Given><Family>Frisk</Family></Name></Person>
       <Organisation><Name>OK Skogen</Name></Organisation>

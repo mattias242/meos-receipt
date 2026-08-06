@@ -13,7 +13,7 @@ test('parseIofResultList: event, löpare, brickor och sträcktider', () => {
   const { event, results } = parseIofResultList(IOF_RESULTLIST);
   assert.equal(event.name, 'Testtävlingen');
   assert.equal(event.date, '2026-08-06');
-  assert.equal(results.length, 3);
+  assert.equal(results.length, 5); // se fixturens huvudkommentar
 
   const anna = results.find((r) => r.card === 123456);
   assert.equal(anna.name, 'Anna Andersson');
@@ -76,6 +76,35 @@ test('IOF-fil kompletterar MOP-data: alla stämplingar på kvittot', async (t) =
   // MOP-data ska inte skrivas över
   assert.equal(r.result.statusText, 'Godkänd');
   assert.equal(r.result.place, 2);
+});
+
+// KRAV-10: MeOS exporterar hela banan som Missing för den som brutit utan att
+// stämpla. En tabell med enbart streck säger löparen ingenting – då ska
+// sträcktabellen utelämnas helt. Har någon kontroll en tid visas den som vanligt.
+test('utgått utan stämplingar ger ingen sträcktabell', async (t) => {
+  const { base, server } = await startServer();
+  t.after(() => server.close());
+  assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
+  assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
+
+  const r = await (await fetch(`${base}/api/receipt?card=222222`)).json();
+  assert.equal(r.result.statusText, 'Utgått');
+  assert.deepEqual(r.splits, [], 'en tabell med bara streck ska inte visas');
+  assert.equal(r.result.startTime, '10:00:00', 'löparen startade faktiskt');
+});
+
+test('utgått efter några kontroller behåller sina stämplingar', async (t) => {
+  const { base, server } = await startServer();
+  t.after(() => server.close());
+  assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
+  assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
+
+  const r = await (await fetch(`${base}/api/receipt?card=555555`)).json();
+  assert.equal(r.result.statusText, 'Utgått');
+  assert.deepEqual(r.splits.map((s) => s.name), ['31', '32', '45']);
+  assert.equal(r.splits[0].elapsed, '7:00');
+  assert.equal(r.splits[2].status, 'missing');
+  assert.equal(r.splits.at(-1).name, '45', 'ingen målrad utan måltid');
 });
 
 test('IOF-fil fyller i status och måltid för löpare utan MOP-resultat', async (t) => {
