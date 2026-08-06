@@ -215,9 +215,13 @@ function renderHits(hits) {
  * för en sida som ser ut att hänga. Returnerar { offline: true } när anropet
  * inte kom fram alls.
  */
-async function anrop(url, opts) {
+async function anrop(url, opts, timeoutMs = 25000) {
+  // Utan tidsgräns väntar sidan hur länge som helst på ett svar som kanske
+  // aldrig kommer – ett glapp i mobilnätet ser då ut som att sidan hängt sig.
+  const avbryt = new AbortController();
+  const klocka = setTimeout(() => avbryt.abort(), timeoutMs);
   try {
-    const res = await fetch(url, opts);
+    const res = await fetch(url, { ...opts, signal: avbryt.signal });
     let data = null;
     try {
       data = await res.json();
@@ -226,7 +230,10 @@ async function anrop(url, opts) {
     }
     return { ok: res.ok, status: res.status, data: data ?? {} };
   } catch {
+    // Både nätverksfel och timeout hamnar här: för löparen är det samma sak.
     return { offline: true, ok: false, status: 0, data: {} };
+  } finally {
+    clearTimeout(klocka);
   }
 }
 

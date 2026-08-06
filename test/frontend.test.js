@@ -22,7 +22,7 @@ test('alla nätanrop går genom hjälpfunktionen med felhantering', () => {
   const rådaAnrop = APP.split('\n')
     .map((rad, i) => `rad ${i + 1}: ${rad.trim()}`)
     .filter((rad) => /\bfetch\(/.test(rad))
-    .filter((rad) => !rad.includes('fetch(url, opts)'));
+    .filter((rad) => !rad.includes('fetch(url, {'));
 
   assert.deepEqual(
     rådaAnrop,
@@ -31,11 +31,20 @@ test('alla nätanrop går genom hjälpfunktionen med felhantering', () => {
   );
 });
 
+test('anropen ger upp i stället för att vänta i oändlighet', () => {
+  const kropp = APP.slice(APP.indexOf('async function anrop('), APP.indexOf('async function loadReceipt'));
+  assert.match(kropp, /AbortController/, 'utan tidsgräns ser ett glapp ut som att sidan hängt sig');
+  assert.match(kropp, /signal:/, 'signalen måste skickas med till fetch');
+  const gräns = kropp.match(/timeoutMs\s*=\s*(\d+)/);
+  assert.ok(gräns && Number(gräns[1]) <= 30000, 'tidsgränsen ska vara sekunder, inte minuter');
+  assert.match(kropp, /clearTimeout/, 'timern ska städas bort när svaret kommit');
+});
+
 test('hjälpfunktionen signalerar utebliven kontakt', () => {
   assert.match(APP, /async function anrop\(/, 'hjälpfunktionen saknas');
-  const kropp = APP.slice(APP.indexOf('async function anrop('));
-  assert.match(kropp.slice(0, 600), /catch/, 'anrop() måste fånga nätverksfel');
-  assert.match(kropp.slice(0, 600), /offline:\s*true/, 'och signalera det till anroparen');
+  const kropp = APP.slice(APP.indexOf('async function anrop('), APP.indexOf('async function loadReceipt'));
+  assert.match(kropp, /catch/, 'anrop() måste fånga nätverksfel');
+  assert.match(kropp, /offline:\s*true/, 'och signalera det till anroparen');
 });
 
 test('användaren får besked när kontakten sviker', () => {

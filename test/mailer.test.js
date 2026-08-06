@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isValidEmail, createMailer, createRateLimiter, maskeraAdresser } from '../lib/mailer.js';
+import { isValidEmail, createMailer, createRateLimiter, maskeraAdresser, createMailerFromEnv } from '../lib/mailer.js';
 
 // KRAV-16: kvitto per e-post
 
@@ -87,6 +87,35 @@ test('maskeraAdresser behåller domänen så felet går att felsöka', () => {
 test('maskeraAdresser rör inte text utan adresser', () => {
   const text = 'Connection timeout after 30000 ms';
   assert.equal(maskeraAdresser(text), text);
+});
+
+// KRAV-16: utan egna timeouts väntar nodemailer i upp till tio minuter på en
+// SMTP-server som inte svarar. Löparen står då kvar med "Skickar…" och en låst
+// knapp, och anropet är redan avräknat mot hennes kvot.
+test('SMTP-transporten ger upp inom rimlig tid', () => {
+  const skapade = [];
+  const fejkadNodemailer = {
+    createTransport(opts) {
+      skapade.push(opts);
+      return { sendMail: async () => ({}) };
+    },
+  };
+  const mailer = createMailerFromEnv(
+    {
+      MAILGUN_SMTP: 'smtp.eu.mailgun.org',
+      MAILGUN_USER: 'kvitto@example.test',
+      MAILGUN_PWD: 'hemligt',
+    },
+    fejkadNodemailer
+  );
+  assert.ok(mailer, 'mailern ska skapas');
+  assert.equal(skapade.length, 1);
+
+  const o = skapade[0];
+  for (const nyckel of ['connectionTimeout', 'greetingTimeout', 'socketTimeout']) {
+    assert.equal(typeof o[nyckel], 'number', `${nyckel} måste sättas – standarden är minuter`);
+    assert.ok(o[nyckel] <= 30000, `${nyckel} är ${o[nyckel]} ms; löparen väntar inte så länge`);
+  }
 });
 
 test('rate limiter släpper igenom upp till max och stoppar sedan', () => {
