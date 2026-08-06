@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { parseIofResultList, applyIof } from '../lib/iof.js';
 import { createStore } from '../lib/store.js';
 import { applyMop } from '../lib/mop.js';
+import { buildReceipt } from '../lib/receipt.js';
 import { createApp } from '../server.js';
 import { MOP_COMPLETE } from './fixtures/mop.js';
 import { IOF_RESULTLIST } from './fixtures/iof.js';
@@ -399,6 +400,70 @@ test('resultatfil utan datum varnar inte', async (t) => {
 
   applyIof(store, 1, IOF_RESULTLIST.replace('<Date>2026-08-06</Date>', ''));
   assert.deepEqual(varningar, [], 'saknas datum går det inte att avgöra');
+});
+
+// KRAV-9: resultatfiler kan komma från andra källor än MeOS resultatautomat,
+// eller från framtida versioner med andra fält. Ofullständig data ska ge ett
+// magrare kvitto, inte en krasch eller en tävling som slutar fungera.
+function minimalResultList(personResult) {
+  return `<?xml version="1.0"?><ResultList xmlns="http://www.orienteering.org/datastandard/3.0">
+    <Event><Name>Testet</Name></Event>
+    <ClassResult><Class><Name>H21</Name></Class>${personResult}</ClassResult>
+  </ResultList>`;
+}
+
+test('löpare utan klubb tas emot', () => {
+  const store = createStore();
+  applyIof(store, 1, minimalResultList(
+    '<PersonResult><Person><Name><Given>A</Given><Family>B</Family></Name></Person>' +
+    '<Result><Status>OK</Status><Time>600</Time><ControlCard>111</ControlCard></Result></PersonResult>'
+  ));
+  const id = Number(Object.keys(store.competitions[1].competitors)[0]);
+  const r = buildReceipt(store.competitions[1], 1, id);
+  assert.equal(r.runner.name, 'A B');
+  assert.equal(r.runner.club, '', 'saknad klubb blir tom, inte "undefined"');
+  assert.equal(r.result.time, '10:00');
+});
+
+test('löpare utan namn ger ändå ett kvitto som går att känna igen', () => {
+  const store = createStore();
+  applyIof(store, 1, minimalResultList(
+    '<PersonResult><Person></Person>' +
+    '<Result><Status>OK</Status><Time>600</Time><ControlCard>333</ControlCard></Result></PersonResult>'
+  ));
+  const id = Number(Object.keys(store.competitions[1].competitors)[0]);
+  const r = buildReceipt(store.competitions[1], 1, id);
+  assert.equal(r.runner.name, '');
+  assert.equal(r.runner.card, 333, 'bricknumret gör att löparen ändå hittar rätt kvitto');
+});
+
+test('löpare utan status behandlas som utan resultat', () => {
+  const store = createStore();
+  applyIof(store, 1, minimalResultList(
+    '<PersonResult><Person><Name><Given>C</Given><Family>D</Family></Name></Person>' +
+    '<Result><Time>600</Time><ControlCard>222</ControlCard></Result></PersonResult>'
+  ));
+  const id = Number(Object.keys(store.competitions[1].competitors)[0]);
+  const r = buildReceipt(store.competitions[1], 1, id);
+  // Utan status vet vi inte om loppet är godkänt, och då vore det fel att visa
+  // en tid som om det vore ett resultat. MeOS skriver alltid status.
+  assert.equal(r.result.time, '');
+  assert.ok(r.result.statusText, 'någon status visas ändå');
+});
+
+test('PersonResult utan Result hoppas över', () => {
+  const store = createStore();
+  applyIof(store, 1, minimalResultList(
+    '<PersonResult><Person><Name><Given>G</Given><Family>H</Family></Name></Person></PersonResult>'
+  ));
+  assert.deepEqual(store.competitions[1].competitors, {}, 'inget att skapa en löpare av');
+});
+
+test('helt tom resultatlista tas emot utan att skapa något', () => {
+  const store = createStore();
+  applyIof(store, 1, minimalResultList(''));
+  assert.deepEqual(store.competitions[1].competitors, {});
+  assert.equal(store.competitions[1].info.name, 'Testet', 'tävlingens namn tas ändå emot');
 });
 
 test('IOF-endpoint kräver rätt lösenord', async (t) => {
