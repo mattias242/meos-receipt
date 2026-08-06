@@ -103,6 +103,47 @@ för namn, status och tider medan resultatfilen bidrar med stämplingslistan
 finns i resultatfilen skapas automatiskt, så tjänsten fungerar även helt utan
 onlineanslutning från MeOS – ladda bara upp resultatfiler.
 
+## Köra allt lokalt på arenan (publikt wifi)
+
+Finns det publikt wifi på arenan kan hela tjänsten köras direkt på
+MeOS-datorn – löparna når kvittosidan i mobilen via wifi:t, utan
+molnserver:
+
+1. **Bygg en fristående Windows-exe** (en gång, på valfri dator med Node):
+
+   ```bash
+   npm install
+   npm run build:exe:win
+   ```
+
+   Paketet i `dist/paket/` (`meos-kvitto.exe`, `public/`, `start.bat`,
+   `LASMIG.txt`) kopieras till tävlingsdatorn – **ingen Node-installation
+   behövs där**.
+
+2. **Starta** med dubbelklick på `start.bat`. Tillåt programmet i
+   Windows-brandväggen när frågan kommer (vid publikt wifi: bocka även i
+   "publika nätverk"). Fönstret visar vilka adresser löparna kan använda,
+   t.ex. `http://192.168.1.42:3000`.
+
+3. **Peka MeOS mot tjänsten lokalt**: Onlineresultat mot
+   `http://localhost:3000/meos` och/eller `ladda-upp-resultat.bat` mot
+   `http://localhost:3000`.
+
+4. **Sprid adressen** till löparna – skriv den på en skylt vid målet
+   eller gör en QR-kod av den.
+
+Att tänka på:
+
+- **Klientisolering:** en del publika/gäst-wifi blockerar trafik mellan
+  anslutna enheter ("AP/client isolation"). Testa med en mobil innan
+  tävlingen – når den inte datorns adress, be nätverksansvarig stänga av
+  isoleringen eller använd egen router/accesspunkt.
+- **Fast adress:** be gärna om ett reserverat IP (DHCP-reservation) för
+  tävlingsdatorn så att adressen på skylten stämmer hela dagen.
+- **SmartScreen:** exe-filens signatur bryts när applikationen bakas in i
+  Node-binären (känd egenskap hos Node SEA), så Windows kan varna första
+  gången – välj "Kör ändå".
+
 ## Miljövariabler
 
 | Variabel | Default | Beskrivning |
@@ -110,6 +151,7 @@ onlineanslutning från MeOS – ladda bara upp resultatfiler.
 | `MEOS_PASSWORD` | — | Lösenord som MeOS måste skicka i `pwd`-headern. Tomt = ingen kontroll (avrådes). |
 | `DATA_DIR` | `./data` | Katalog för persisterad tävlingsdata (JSON). |
 | `PORT` | `3000` | Port för webbservern. |
+| `PUBLIC_DIR` | `public/` bredvid koden/exen | Katalog med kvittosidans statiska filer. |
 
 ## API
 

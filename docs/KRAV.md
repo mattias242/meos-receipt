@@ -22,6 +22,7 @@ grönt.
 | KRAV-9 | Tjänsten tar emot resultatfiler i IOF XML 3.0 (ResultList med sträcktider), exporterade av MeOS resultatautomat, via `POST /iof` med samma autentisering som MOP. Löpare matchas mot befintlig MOP-data via bricknummer; löpare som bara finns i resultatfilen skapas. | `features/resultatfiler.feature` |
 | KRAV-10 | När en resultatfil är inläst visar kvittot samtliga stämplingar i banordning — inklusive saknade kontroller (felstämpling) och extra stämplingar — med sträck-, total- och klocktid, samt starttid och måltid. Utan resultatfil visas radiotider som tidigare. | `features/resultatfiler.feature` |
 | KRAV-11 | Uppladdningen från MeOS-datorn ska kunna köras som ren Windows/DOS-applikation (cmd.exe/`.bat`) utan andra beroenden än det som ingår i Windows 10/11 (`curl.exe`). Programmet ska även kunna startas med dubbelklick via en konfigfil. | `tools/ladda-upp-resultat.bat` — *verifieras manuellt på Windows; kan inte automattestas i CI-miljön (Linux)* |
+| KRAV-12 | Hela tjänsten ska kunna köras fristående på tävlingsdatorn (Windows) utan installerad Node.js — paketerad som en `.exe` med byggskriptet `npm run build:exe:win`. Vid start skriver tjänsten ut vilka adresser löpare kan nå kvittosidan på via arenans wifi (datorns LAN-IP). | `tools/bygg-exe.mjs` (byggpipelinen röktestas för aktuell plattform), `test/lan.test.js` för adressvisningen — *själva Windows-exen verifieras manuellt* |
 
 ## Arbetssätt
 

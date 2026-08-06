@@ -140,7 +140,9 @@ export function createApp({ dataDir = null, password = '', saveDelayMs = 2000 } 
   });
 
   // --- Static frontend -----------------------------------------------------
-  app.use(express.static(path.join(__dirname, 'public')));
+  // I den paketerade exe-filen (Node SEA) blir __dirname mappen där exen
+  // ligger, så public/ levereras bredvid den. PUBLIC_DIR kan alltid överstyra.
+  app.use(express.static(process.env.PUBLIC_DIR || path.join(__dirname, 'public')));
 
   return app;
 }
