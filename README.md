@@ -45,8 +45,11 @@ Kraven är dokumenterade i [`docs/KRAV.md`](docs/KRAV.md) och formulerade som
 exekverbara Gherkin-scenarier (svenska) i [`features/`](features/). Ett krav
 är uppfyllt när dess scenarier är gröna (`npm run bdd`).
 
+- **Trunk-based:** små commits direkt på `main`; varje commit lämnar trunken
+  grön (`npm run verify`).
 - **BDD:** nya krav skrivs som scenarier *innan* implementation och ska vara
-  röda från start.
+  röda från start. På trunken committas rött+grönt tillsammans; scenarier som
+  väntar på implementation taggas `@wip` och ingår inte i `npm run bdd`.
 - **TDD:** implementationsdetaljer drivs av enhetstester i `test/` — skriv
   testet, se det falla, implementera, se det passera.
 - CI-workflow finns i [`docs/github-actions-ci.yml`](docs/github-actions-ci.yml) –
