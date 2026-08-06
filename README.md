@@ -165,6 +165,17 @@ fel, men kvittona blir ofullständiga tills raden visar `OK`.
 Öppna slutligen ett kvitto i mobilen. Visar det bara radiokontroller i stället
 för hela stämplingslistan har resultatfilen inte nått fram – se punkt 3.
 
+Har du en riktig resultatfil kan hela deltagarfältet jämföras mot den:
+
+```bash
+node tools/korsvalidera.mjs resultat.xml https://din-server.example 1
+```
+
+Filen är facit: namn, klass, status, placering, måltid och samtliga sträcktider
+jämförs mot vad tjänsten svarar. Testsviten visar att koden gör vad den ska –
+det här visar om den gör rätt sak på riktig data, vilket är hur flera av de
+allvarligaste felen i projektet har hittats.
+
 ### Om något krånglar under tävlingen
 
 | Symtom | Trolig orsak |
