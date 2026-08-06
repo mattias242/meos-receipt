@@ -37,8 +37,10 @@ if (!mailer) {
 }
 
 const app = createApp({ dataDir, password, retentionDays, mailer, trustProxy });
-app.listen(port, () => {
-  console.log(`MeOS digitalt kvitto lyssnar på http://localhost:${port}`);
+const server = app.listen(port, () => {
+  // Den bundna porten, inte den önskade: med PORT=0 väljer OS:et en ledig.
+  const bunden = server.address().port;
+  console.log(`MeOS digitalt kvitto lyssnar på http://localhost:${bunden}`);
   console.log('MeOS onlineresultat (MOP) tas emot på POST /meos, resultatfiler på POST /iof');
   const urls = lanUrls(port);
   if (urls.length) {
@@ -47,3 +49,21 @@ app.listen(port, () => {
     for (const url of urls) console.log(`  ${url}`);
   }
 });
+
+// Docker och Fly.io skickar SIGTERM vid varje deploy. Utan det här avslutas
+// Node direkt, och sparningen – som är debouncad och unref:ad för att inte
+// hålla processen vid liv – hinner aldrig skriva. MeOS skickar visserligen om
+// var tionde sekund, men efter dagens sista sändning finns ingen som gör det.
+let avslutar = false;
+function avsluta(signal) {
+  if (avslutar) return;
+  avslutar = true;
+  console.log(`${signal} mottaget – skriver kvar data och avslutar.`);
+  // Skriv först: en anslutning som inte vill stänga får inte kosta tävlingsdata.
+  app.locals.store.close();
+  server.close(() => process.exit(0));
+  // Kvittosidan pollar var 15:e sekund, så det finns nästan alltid en öppen
+  // anslutning. Vänta inte ut den – datan är redan skriven.
+  setTimeout(() => process.exit(0), 5000).unref();
+}
+for (const signal of ['SIGTERM', 'SIGINT']) process.on(signal, () => avsluta(signal));

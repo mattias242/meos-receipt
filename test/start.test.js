@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import net from 'node:net';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -76,4 +77,70 @@ test('med lösenord startar den som vanligt', async () => {
   const { ut } = await start({ MEOS_PASSWORD: 'hemligt' }, { timeoutMs: 3000 });
   assert.match(ut, /lyssnar på/, `startade inte:\n${ut}`);
   assert.doesNotMatch(ut, /MEOS_PASSWORD är inte satt/);
+});
+
+/** En port OS:et nyss gav oss och som vi genast lämnar tillbaka. */
+async function ledigPort() {
+  const s = net.createServer();
+  await new Promise((klar) => s.listen(0, '127.0.0.1', klar));
+  const p = s.address().port;
+  await new Promise((klar) => s.close(klar));
+  return p;
+}
+
+/**
+ * KRAV-8: inläst data ska överleva en omstart.
+ *
+ * Sparningen är debouncad och timern är unref:ad, alltså håller den inte
+ * processen vid liv. Utan signalhantering avslutas Node direkt på SIGTERM –
+ * det Docker och Fly.io skickar vid varje deploy – och det som väntade på att
+ * skrivas är borta. MeOS skickar visserligen om var tionde sekund, men efter
+ * dagens sista sändning finns ingen som skickar om.
+ */
+test('en omstart tappar inte det som väntade på att skrivas', async () => {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-sigterm-'));
+  const { MOP_COMPLETE } = await import('./fixtures/mop.js');
+
+  const proc = spawn(process.execPath, ['index.js'], {
+    cwd: ROT,
+    env: {
+      PATH: process.env.PATH,
+      PORT: String(await ledigPort()),
+      DOTENV_CONFIG_PATH: path.join(ROT, '.env.finns-inte'),
+      MEOS_PASSWORD: 'hemligt',
+      DATA_DIR: dataDir,
+    },
+  });
+
+  // Vänta ut startraden och läs porten ur den
+  const port = await new Promise((klar, fel) => {
+    let ut = '';
+    proc.stdout.on('data', (d) => {
+      ut += d;
+      const m = ut.match(/lyssnar på http:\/\/localhost:(\d+)/);
+      if (m) klar(Number(m[1]));
+    });
+    proc.on('close', () => fel(new Error(`tjänsten dog vid start:\n${ut}`)));
+  });
+
+  const svar = await fetch(`http://127.0.0.1:${port}/meos`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/xml', competition: '1', pwd: 'hemligt' },
+    body: MOP_COMPLETE,
+  });
+  assert.equal(await svar.text(), 'OK');
+
+  // Direkt efter mottagningen, innan debouncen hunnit spara
+  const avslutad = new Promise((r) => proc.on('close', r));
+  proc.kill('SIGTERM');
+  assert.equal(await avslutad, 0, 'SIGTERM ska ge en ren avslutning');
+
+  const fil = path.join(dataDir, 'competitions.json');
+  assert.ok(fs.existsSync(fil), 'ingenting skrevs till disk – tävlingen är borta');
+  const sparat = JSON.parse(fs.readFileSync(fil, 'utf8'));
+  assert.equal(
+    sparat['1']?.info?.name,
+    'Testtävlingen',
+    'tävlingen nådde aldrig disken innan processen avslutades'
+  );
 });

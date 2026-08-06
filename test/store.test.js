@@ -346,3 +346,38 @@ async function waitFor(cond, ms = 500) {
   }
   throw new Error(`villkoret uppfylldes inte inom ${ms} ms`);
 }
+
+// KRAV-8: sparningen är debouncad och timern unref:ad, så det som väntar på
+// att skrivas försvinner när processen avslutas. flush() skriver det nu.
+test('flush skriver det som väntar på att sparas', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-flush-'));
+  const fil = path.join(dir, 'competitions.json');
+  const store = createStore({ dataDir: dir, saveDelayMs: 60000 });
+
+  store.getCompetition(1).info.name = 'Testtävlingen';
+  store.touch(1);
+  assert.equal(fs.existsSync(fil), false, 'debouncen ska inte ha löpt ut än');
+
+  store.flush();
+  assert.equal(JSON.parse(fs.readFileSync(fil, 'utf8'))['1'].info.name, 'Testtävlingen');
+});
+
+test('close skriver också kvar det som väntar', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-flush-close-'));
+  const store = createStore({ dataDir: dir, saveDelayMs: 60000 });
+  store.getCompetition(1).info.name = 'Testtävlingen';
+  store.touch(1);
+  store.close();
+  assert.ok(fs.existsSync(path.join(dir, 'competitions.json')), 'close() tömde inte sparkön');
+});
+
+test('flush utan något att spara rör inte disken', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-flush-tom-'));
+  const store = createStore({ dataDir: dir, saveDelayMs: 60000 });
+  store.flush();
+  assert.equal(
+    fs.existsSync(path.join(dir, 'competitions.json')),
+    false,
+    'en tom fil skulle skriva över en tidigare tävling vid nästa start'
+  );
+});

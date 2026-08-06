@@ -33,6 +33,8 @@ export function createApp({
   const emailLimiter = createRateLimiter(emailRateLimit);
   const app = express();
   app.disable('x-powered-by');
+  // Den som binder porten behöver kunna tömma sparkön vid avslut (KRAV-8).
+  app.locals.store = store;
   // Taket på mejlutskick gäller per avsändar-IP (KRAV-16). Bakom Fly.io:s
   // proxy eller nginx är socketens adress proxyns – alltså samma för alla, så
   // fem utskick låser hela tävlingen ute. Antalet hopp anges uttryckligen:
