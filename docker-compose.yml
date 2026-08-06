@@ -18,6 +18,16 @@ services:
     environment:
       MEOS_PASSWORD: ${MEOS_PASSWORD:?Sätt MEOS_PASSWORD, t.ex. i en .env-fil}
       DATA_DIR: /data
+      # Containern läser inte .env själv – variablerna måste skickas vidare
+      # här, annars startar tjänsten utan gallring och utan e-postutskick
+      # trots att .env ser komplett ut. Kontrollera med /api/health.
+      RETENTION_DAYS: ${RETENTION_DAYS:-90}
+      MAILGUN_SMTP: ${MAILGUN_SMTP:-}
+      MAILGUN_USER: ${MAILGUN_USER:-}
+      MAILGUN_PWD: ${MAILGUN_PWD:-}
+      MAILGUN_PORT: ${MAILGUN_PORT:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_REPLY_TO: ${MAIL_REPLY_TO:-}
     volumes:
       - ./data:/data
     restart: unless-stopped

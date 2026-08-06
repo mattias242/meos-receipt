@@ -138,6 +138,47 @@ Checklista tävlingsdagen:
    `https://din-server.example`. En direktlänk till ett kvitto har formen
    `https://din-server.example/?card=123456`.
 
+### Verifiera dagen före
+
+Flera fel visar sig som tystnad snarare än felmeddelanden, så kontrollera
+att data faktiskt kommer fram – inte bara att programmen är igång:
+
+```bash
+# Tjänsten svarar, och e-post är på om ni tänkt använda det
+curl https://din-server.example/api/health
+# -> {"ok":true,"competitions":1,"email":true}
+
+# Tävlingen har kommit in från MeOS
+curl https://din-server.example/api/competitions
+
+# En känd löpare får sitt kvitto
+curl 'https://din-server.example/api/receipt?card=123456'
+```
+
+Titta också på fönstret där `ladda-upp-resultat.bat` körs. Varje uppladdning
+skriver en rad: `OK` betyder att filen tagits emot, `BADPWD` att lösenordet är
+fel och `ERROR` att filen inte kunde tolkas. Skriptet fortsätter försöka vid
+fel, men kvittona blir ofullständiga tills raden visar `OK`.
+
+Öppna slutligen ett kvitto i mobilen. Visar det bara radiokontroller i stället
+för hela stämplingslistan har resultatfilen inte nått fram – se punkt 3.
+
+### Om något krånglar under tävlingen
+
+| Symtom | Trolig orsak |
+| --- | --- |
+| Kvittot visar bara radiotider | Resultatfilen når inte fram – kontrollera uppladdningsfönstret. |
+| `BADPWD` i uppladdningsfönstret | Lösenordet skiljer sig från `MEOS_PASSWORD` på servern. |
+| `413` i MeOS eller uppladdningen | nginx framför tjänsten saknar `client_max_body_size 32m;`. |
+| Löparen hittar inte sitt kvitto | Sök på namn i stället; delad bricka ger en valbar lista. |
+| "Sökningen gav N träffar" | Sökningen matchade fler än 100 – skriv mer av namnet. |
+| Mejlformuläret syns inte | `MAILGUN_*` saknas på servern; `/api/health` visar `email: false`. |
+
+Tävlingsdata ligger kvar i 90 dagar och gallras sedan automatiskt
+(`RETENTION_DAYS`). Startas MeOS Onlineresultat om mitt under tävlingen
+skickas en ny komplett sändning – stämplingarna från resultatfilen finns
+kvar ändå.
+
 **Reserv utan internet:** tjänsten kan även byggas som fristående
 Windows-exe (`npm run build:exe:win`, paket i `dist/paket/`) och köras
 direkt på tävlingsdatorn – men det förutsätter ett lokalt nätverk som
