@@ -6,6 +6,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Manuell körning: under en Actions-driftstörning tappas push-eventet, och
+  # då finns annars inget sätt att köra vakten mot en redan pushad commit.
+  workflow_dispatch:
 
 jobs:
   test:
