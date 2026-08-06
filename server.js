@@ -27,11 +27,18 @@ export function createApp({
   now = undefined,
   mailer = null,
   emailRateLimit = {},
+  trustProxy = false,
 } = {}) {
   const store = createStore({ dataDir, saveDelayMs, retentionDays, now });
   const emailLimiter = createRateLimiter(emailRateLimit);
   const app = express();
   app.disable('x-powered-by');
+  // Taket på mejlutskick gäller per avsändar-IP (KRAV-16). Bakom Fly.io:s
+  // proxy eller nginx är socketens adress proxyns – alltså samma för alla, så
+  // fem utskick låser hela tävlingen ute. Antalet hopp anges uttryckligen:
+  // "lita på vad som helst" hade i stället låtit vem som helst sätta
+  // X-Forwarded-For själv och kringgå taket helt.
+  if (trustProxy !== false && trustProxy !== null) app.set('trust proxy', trustProxy);
 
   // --- XML push endpoints (MeOS online + resultatautomat) ------------------
   // Same header protocol for both: competition (id) and pwd (password).

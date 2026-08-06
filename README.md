@@ -197,6 +197,7 @@ allvarligaste felen i projektet har hittats.
 | Löparen hittar inte sitt kvitto | Sök på namn i stället; delad bricka ger en valbar lista. |
 | "Sökningen gav N träffar" | Sökningen matchade fler än 100 – skriv mer av namnet. |
 | Mejlformuläret syns inte | `MAILGUN_*` saknas på servern; `/api/health` visar `email: false`. |
+| "För många utskick" för alla | `TRUST_PROXY` är inte satt bakom proxy – taket räknas då på proxyns adress, gemensamt för hela tävlingen. |
 | `sparfel` i `/api/health` | Data kan inte skrivas till disk (full disk, fel rättigheter, trasig volym). Tjänsten fungerar, men allt försvinner vid omstart. |
 
 Tävlingsdata ligger kvar i 90 dagar och gallras sedan automatiskt
@@ -239,6 +240,7 @@ Se KRAV-12 (utgått) i `docs/KRAV.md`.
 | `PORT` | `3000` | Port för webbservern. |
 | `PUBLIC_DIR` | `public/` bredvid koden/exen | Katalog med kvittosidans statiska filer. |
 | `RETENTION_DAYS` | `90` | Antal dagar tävlingsdata sparas innan den gallras (KRAV-14). `0` stänger av gallringen. |
+| `TRUST_PROXY` | `0` | Antal proxyhopp framför tjänsten. Sätt `1` bakom Fly.io eller nginx, annars ser takt-begränsaren proxyns adress för alla och fem mejlutskick låser hela tävlingen ute. Lämna `0` utan proxy – då går headern inte att sätta själv. |
 | `MAILGUN_SMTP` | — | SMTP-server för utskick av kvitto (KRAV-16). EU-domäner kräver `smtp.eu.mailgun.org`; US-endpointen ger "Authentication failed". |
 | `MAILGUN_USER` | — | SMTP-användare, hela adressen (t.ex. `kvitto@mg.dinklubb.se`). Enbart ett namn ger `501 Username used for auth is not valid email address`. |
 | `MAILGUN_PWD` | — | SMTP-lösenordet, **inte** API-nyckeln. |
@@ -288,6 +290,11 @@ den kedjan:
   det lätt. Då svarar nginx `413` och MeOS-pushen misslyckas mitt under
   tävlingen. Sätt `client_max_body_size 32m;` för värdnamnet (tjänstens
   egen gräns är 32 MB).
+- **`TRUST_PROXY`** – sätt `1` (eller antalet hopp, inklusive Cloudflare)
+  när något står framför tjänsten. Annars ser takt-begränsaren proxyns
+  adress för samtliga löpare, och när fem mejlat sitt kvitto får ingen mer
+  skicka på tio minuter. Sätt det *inte* utan proxy: då kan vem som helst
+  sätta `X-Forwarded-For` själv och kringgå taket.
 - **Cloudflare SSL/TLS-läge** – kör "Full (strict)" med giltigt certifikat
   på nginx (Lets Encrypt eller ett Cloudflare Origin-certifikat), inte
   "Flexible".

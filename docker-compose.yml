@@ -24,6 +24,8 @@ services:
       # här, annars startar tjänsten utan gallring och utan e-postutskick
       # trots att .env ser komplett ut. Kontrollera med /api/health.
       RETENTION_DAYS: ${RETENTION_DAYS:-90}
+      # Antal proxyhopp framför tjänsten. Ligger nginx framför: 1. Utan proxy: 0.
+      TRUST_PROXY: ${TRUST_PROXY:-0}
       MAILGUN_SMTP: ${MAILGUN_SMTP:-}
       MAILGUN_USER: ${MAILGUN_USER:-}
       MAILGUN_PWD: ${MAILGUN_PWD:-}

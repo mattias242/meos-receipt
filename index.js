@@ -8,6 +8,9 @@ const dataDir = process.env.DATA_DIR || './data';
 const password = process.env.MEOS_PASSWORD || '';
 // KRAV-14: gallring av tävlingsdata. 0 stänger av den.
 const retentionDays = parseInt(process.env.RETENTION_DAYS ?? '90', 10);
+// KRAV-16: antal proxyhopp framför tjänsten, så att takt-begränsaren ser
+// löparen och inte proxyn. 0/tomt = ingen proxy (lita inte på headern).
+const trustProxy = parseInt(process.env.TRUST_PROXY || '0', 10) || false;
 
 // KRAV-13: tjänsten ligger på internet. Utan lösenord kontrolleras ingen
 // pwd-header, och en enda MOPComplete från vem som helst ersätter hela
@@ -33,7 +36,7 @@ if (!mailer) {
   console.warn('E-postutskick av kvitto är avstängt (MAILGUN_SMTP/USER/PWD saknas).');
 }
 
-const app = createApp({ dataDir, password, retentionDays, mailer });
+const app = createApp({ dataDir, password, retentionDays, mailer, trustProxy });
 app.listen(port, () => {
   console.log(`MeOS digitalt kvitto lyssnar på http://localhost:${port}`);
   console.log('MeOS onlineresultat (MOP) tas emot på POST /meos, resultatfiler på POST /iof');
