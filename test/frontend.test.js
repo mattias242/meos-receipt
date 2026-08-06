@@ -56,6 +56,33 @@ test('automatisk uppdatering tiger vid glapp i täckningen', () => {
   assert.match(kropp, /if \(!silent\) showMessage/, 'pollningen ska inte skrika vid glapp');
 });
 
+// KRAV-17: sidan används av löpare i alla åldrar, en del med skärmläsare.
+const HTML = fs.readFileSync(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public', 'index.html'),
+  'utf8'
+);
+
+test('sökfältet har en etikett, inte bara en platshållare', () => {
+  const input = HTML.match(/<input[^>]*id="query"[^>]*>/s);
+  assert.ok(input, 'sökfältet saknas');
+  const harLabel = /<label[^>]*for="query"/.test(HTML);
+  const harAria = /aria-label=/.test(input[0]);
+  assert.ok(
+    harLabel || harAria,
+    'placeholder räcker inte – den läses inkonsekvent och försvinner när man skriver'
+  );
+});
+
+test('kvitto och meddelanden annonseras när de ändras', () => {
+  // Sidan uppdaterar sig själv var 15:e sekund. Utan aria-live får den som
+  // använder skärmläsare aldrig veta att resultatet kommit.
+  for (const id of ['receipt', 'message']) {
+    const el = HTML.match(new RegExp(`<[^>]*id="${id}"[^>]*>`));
+    assert.ok(el, `elementet ${id} saknas`);
+    assert.match(el[0], /aria-live=/, `${id} annonseras inte vid ändring`);
+  }
+});
+
 test('textfält från tjänsten escapas innan de sätts som HTML', () => {
   // Bara innerHTML-tilldelningarna är intressanta – text som går till
   // textContent eller navigator.share kan inte bli HTML.

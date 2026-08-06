@@ -28,16 +28,21 @@
   <form id="searchForm" autocomplete="off">
     <select id="cmpSelect" hidden aria-label="Välj tävling"></select>
     <div class="searchRow">
+      <!-- Etiketten är dold för synen men läses av skärmläsare. En placeholder
+           räcker inte: den läses inkonsekvent och försvinner när man skriver. -->
+      <label for="query" class="visuallyHidden">SportIdent-nummer eller namn</label>
       <input id="query" type="text" inputmode="numeric"
              placeholder="SportIdent-nummer eller namn" required />
       <button type="submit">Visa</button>
     </div>
   </form>
 
-  <div id="message" class="message" hidden></div>
+  <!-- Sidan uppdaterar sig själv var 15:e sekund; utan aria-live får den som
+       använder skärmläsare aldrig veta att resultatet kommit. -->
+  <div id="message" class="message" role="status" aria-live="polite" hidden></div>
   <ul id="hits" class="hits" hidden></ul>
 
-  <article id="receipt" class="receipt" hidden></article>
+  <article id="receipt" class="receipt" aria-live="polite" hidden></article>
 </main>
 
 <footer>
