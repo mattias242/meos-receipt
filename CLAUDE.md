@@ -100,6 +100,16 @@ MeOS resultatautomat ─IOF XML 3.0──▶ POST /iof ──┘   (minne + JSON
   okomprimerat – zip stöds medvetet inte. Rå body, gräns 32 MB.
 - **Statuskoder** är MeOS numeriska koder (`STATUS_TEXT` i `lib/receipt.js`);
   IOF-status mappas mot dem via `IOF_STATUS_TO_STAT` i `lib/iof.js`.
+- **Sparningen blockerar eventloopen** och gör det med hela databasen, inte
+  bara det som ändrats. Med 90 dagars data (60 tävlingar, ~57 000 löpare,
+  16 MB) tar `JSON.stringify` 40 ms och skrivningen 24 ms. Under tävling, när
+  MeOS skickar var tionde sekund, lyfter det p99 för kvittohämtning från 8 till
+  69 ms medan medianen är oförändrad – omärkligt för en löpare, och därför
+  medvetet inte optimerat. Blir datamängden flera gånger större närmar sig
+  blockeringen en fördröjning som märks, och då är det inkrementell sparning
+  som behövs, inte asynkron skrivning: `JSON.stringify` står för merparten, och
+  två överlappande asynkrona sparningar skulle dessutom kunna trampa på samma
+  tmp-fil.
 - **Ingen build för frontend.** `public/` är vanilla JS/CSS som serveras statiskt
   och pollar `/api/receipt` var 15:e sekund. `PUBLIC_DIR` styr sökvägen (behövs för
   SEA-exen där `__dirname` blir exens mapp).
