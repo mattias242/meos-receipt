@@ -24,7 +24,8 @@ test('parseIofResultList: event, löpare, brickor och sträcktider', () => {
   assert.equal(anna.rt, 21000);    // 2100 s -> tiondelar
   assert.equal(anna.splits.length, 5);
   assert.deepEqual(anna.splits[0], { code: 31, rt: 4500, status: 'ok' });
-  assert.deepEqual(anna.splits[2], { code: 77, rt: 10000, status: 'additional' });
+  // Extra stämplingar ligger sist i filen, i MeOS egen ordning.
+  assert.deepEqual(anna.splits[4], { code: 77, rt: 10000, status: 'additional' });
 
   const carl = results.find((r) => r.card === 111111);
   assert.equal(carl.status, 'MissingPunch');
@@ -68,6 +69,9 @@ test('IOF-fil kompletterar MOP-data: alla stämplingar på kvittot', async (t) =
   assert.equal(r.splits[2].status, 'additional');
   assert.equal(r.splits[0].elapsed, '7:30');
   assert.equal(r.splits[0].clock, '10:07:30');
+  // Extra stämplingen sorteras in kronologiskt och sträcktiderna följer med
+  assert.equal(r.splits[2].leg, '1:40'); // 77: 1000 s - 900 s
+  assert.equal(r.splits[3].leg, '5:50'); // 45: 1350 s - 1000 s
   assert.equal(r.splits[5].leg, '5:00'); // Mål: 2100 s - 1800 s
   // MOP-data ska inte skrivas över
   assert.equal(r.result.statusText, 'Godkänd');

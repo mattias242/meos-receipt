@@ -2,6 +2,9 @@
  * IOF XML 3.0 ResultList med sträcktider – som MeOS resultatautomat
  * exporterar den till fil. Matchar löparna i MOP-fixturerna via bricknummer.
  *
+ * MeOS lägger extra stämplingar (status="Additional") sist i varje Result,
+ * efter de banordnade – inte på sin kronologiska plats. Fixturen speglar det.
+ *
  * - Anna Andersson (123456): godkänd, komplett bana + en extra stämpling (77)
  * - Carl Carlsson (111111): felstämplad, kontroll 45 saknas
  * - Frida Frisk (333333): finns inte i MOP-datat alls
@@ -25,9 +28,9 @@ export const IOF_RESULTLIST = `<?xml version="1.0" encoding="UTF-8"?>
         <Status>OK</Status>
         <SplitTime><ControlCode>31</ControlCode><Time>450</Time></SplitTime>
         <SplitTime><ControlCode>32</ControlCode><Time>900</Time></SplitTime>
-        <SplitTime status="Additional"><ControlCode>77</ControlCode><Time>1000</Time></SplitTime>
         <SplitTime><ControlCode>45</ControlCode><Time>1350</Time></SplitTime>
         <SplitTime><ControlCode>50</ControlCode><Time>1800</Time></SplitTime>
+        <SplitTime status="Additional"><ControlCode>77</ControlCode><Time>1000</Time></SplitTime>
         <ControlCard>123456</ControlCard>
       </Result>
     </PersonResult>
