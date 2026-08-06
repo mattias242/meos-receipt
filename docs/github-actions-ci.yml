@@ -1,0 +1,23 @@
+# Flytta denna fil till .github/workflows/ci.yml för att aktivera CI.
+# (Kunde inte pushas dit automatiskt – GitHub-appen saknar workflows-behörighet.)
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Enhetstester (TDD)
+        run: npm test
+      - name: BDD-scenarier (krav)
+        run: npm run bdd

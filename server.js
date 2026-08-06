@@ -13,8 +13,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  *  - GET  /api/*: JSON-API för kvittosidan
  *  - statiska filer i public/
  */
-export function createApp({ dataDir = null, password = '' } = {}) {
-  const store = createStore({ dataDir });
+export function createApp({ dataDir = null, password = '', saveDelayMs = 2000 } = {}) {
+  const store = createStore({ dataDir, saveDelayMs });
   const app = express();
   app.disable('x-powered-by');
 
@@ -78,25 +78,50 @@ export function createApp({ dataDir = null, password = '' } = {}) {
     res.json(hits);
   });
 
-  app.get('/api/receipt', (req, res) => {
-    const cmpId = resolveCmp(req);
-    if (!cmpId) return res.status(404).json({ error: 'Ingen tävling inläst ännu.' });
-    const cmp = store.competitions[cmpId];
-
-    let competitorId = parseInt(req.query.id || '', 10);
-    if (!(competitorId > 0)) {
-      const card = parseInt(req.query.card || '', 10);
-      if (!(card > 0)) return res.status(400).json({ error: 'Ange bricknummer (card) eller löpar-id (id).' });
-      const matches = Object.entries(cmp.competitors)
+  // Find the card in the latest competition where it occurs (KRAV-6).
+  function findByCard(card, explicitCmp) {
+    const cmpIds = explicitCmp
+      ? [explicitCmp]
+      : store.listCompetitions().map((c) => c.id);
+    for (const cmpId of cmpIds) {
+      const matches = Object.entries(store.competitions[cmpId].competitors)
         .filter(([, c]) => c.card === card)
         .map(([id]) => Number(id));
-      if (matches.length === 0) {
-        return res.status(404).json({ error: `Ingen löpare med bricka ${card} hittades.` });
-      }
-      competitorId = matches[0];
+      if (matches.length) return { cmpId, matches };
+    }
+    return null;
+  }
+
+  app.get('/api/receipt', (req, res) => {
+    if (store.listCompetitions().length === 0) {
+      return res.status(404).json({ error: 'Ingen tävling inläst ännu.' });
     }
 
-    const receipt = buildReceipt(cmp, cmpId, competitorId);
+    let cmpId, competitorId;
+    const explicitId = parseInt(req.query.id || '', 10);
+    if (explicitId > 0) {
+      cmpId = resolveCmp(req);
+      competitorId = explicitId;
+    } else {
+      const card = parseInt(req.query.card || '', 10);
+      if (!(card > 0)) return res.status(400).json({ error: 'Ange bricknummer (card) eller löpar-id (id).' });
+
+      const explicit = parseInt(req.query.cmp || '', 10);
+      const found = findByCard(card, explicit > 0 && store.competitions[explicit] ? explicit : null);
+      if (!found) {
+        return res.status(404).json({ error: `Ingen löpare med bricka ${card} hittades.` });
+      }
+      if (found.matches.length > 1) {
+        // Delad bricka: låt användaren välja (KRAV-7).
+        return res.status(300).json({
+          alternatives: searchCompetitors(store.competitions[found.cmpId], found.cmpId, String(card)),
+        });
+      }
+      cmpId = found.cmpId;
+      competitorId = found.matches[0];
+    }
+
+    const receipt = buildReceipt(store.competitions[cmpId], cmpId, competitorId);
     if (!receipt) return res.status(404).json({ error: 'Löparen hittades inte.' });
     res.json(receipt);
   });

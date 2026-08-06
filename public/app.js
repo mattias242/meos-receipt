@@ -122,10 +122,28 @@ function renderReceipt(r) {
   });
 }
 
+function renderHits(hits) {
+  hitsEl.innerHTML = hits
+    .map(
+      (h) => `<li><button type="button" data-cmp="${h.cmp}" data-id="${h.id}">
+        <strong>${esc(h.name)}</strong>
+        <span class="meta">${esc(h.club)} · ${esc(h.class)}${h.card ? ' · Bricka ' + esc(h.card) : ''}</span>
+      </button></li>`
+    )
+    .join('');
+  hitsEl.hidden = false;
+}
+
 async function loadReceipt(params, { silent = false } = {}) {
   const qs = new URLSearchParams(params);
   const res = await fetch('api/receipt?' + qs.toString());
   const data = await res.json();
+  if (res.status === 300 && data.alternatives) {
+    // Flera löpare delar brickan – låt användaren välja.
+    showMessage('Flera löpare har den brickan – välj i listan.');
+    renderHits(data.alternatives);
+    return;
+  }
   if (!res.ok) {
     if (!silent) showMessage(data.error || 'Kunde inte hämta kvittot.');
     return;
@@ -166,15 +184,7 @@ async function search(q) {
     await loadReceipt({ cmp: hits[0].cmp, id: hits[0].id });
     return;
   }
-  hitsEl.innerHTML = hits
-    .map(
-      (h) => `<li><button type="button" data-cmp="${h.cmp}" data-id="${h.id}">
-        <strong>${esc(h.name)}</strong>
-        <span class="meta">${esc(h.club)} · ${esc(h.class)}${h.card ? ' · Bricka ' + esc(h.card) : ''}</span>
-      </button></li>`
-    )
-    .join('');
-  hitsEl.hidden = false;
+  renderHits(hits);
 }
 
 hitsEl.addEventListener('click', (e) => {

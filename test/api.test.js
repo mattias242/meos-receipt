@@ -1,38 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../server.js';
-
-const MOP_COMPLETE = `<?xml version="1.0" encoding="UTF-8"?>
-<MOPComplete xmlns="http://www.melin.nu/mop">
-  <competition date="2026-08-06" organizer="Testklubben OK" homepage="https://example.org">Testtävlingen</competition>
-  <ctrl id="150">Radio 1</ctrl>
-  <ctrl id="162">Förvarning</ctrl>
-  <cls id="1" ord="1" radio="150,162">H21</cls>
-  <cls id="2" ord="2">D21</cls>
-  <org id="5" nat="SWE">OK Skogen</org>
-  <cmp id="31" card="123456">
-    <base org="5" cls="1" stat="1" st="360000" rt="21000" bib="12">Anna Andersson</base>
-    <radio>150,9000;162,18000</radio>
-  </cmp>
-  <cmp id="32" card="654321">
-    <base org="5" cls="1" stat="1" st="366000" rt="19500">Berit Bengtsson</base>
-    <radio>150,8500;162,17000</radio>
-  </cmp>
-  <cmp id="33" card="111111">
-    <base org="5" cls="1" stat="0" st="372000" rt="0">Carl Carlsson</base>
-  </cmp>
-  <cmp id="34" card="222222">
-    <base org="5" cls="2" stat="4" st="360000" rt="0">Doris Dahl</base>
-  </cmp>
-</MOPComplete>`;
-
-const MOP_DIFF = `<?xml version="1.0" encoding="UTF-8"?>
-<MOPDiff xmlns="http://www.melin.nu/mop">
-  <cmp id="33" card="111111">
-    <base org="5" cls="1" stat="1" st="372000" rt="18000" prel="true">Carl Carlsson</base>
-    <radio>150,8000;162,16000</radio>
-  </cmp>
-</MOPDiff>`;
+import {
+  MOP_COMPLETE,
+  MOP_DIFF_CARL as MOP_DIFF,
+  mopDiffExtraRunner,
+  mopCompleteMinimal,
+} from './fixtures/mop.js';
 
 async function startServer(opts = {}) {
   const app = createApp(opts);
@@ -134,6 +108,39 @@ test('search by name and unknown card gives 404', async (t) => {
 
   const res = await fetch(`${base}/api/receipt?card=999999`);
   assert.equal(res.status, 404);
+});
+
+// KRAV-6: brickan hittas i den senaste tävling där den förekommer
+test('card found in older competition when the latest lacks it', async (t) => {
+  const { server, base } = await startServer();
+  t.after(() => server.close());
+  await postMop(base, MOP_COMPLETE);
+  await postMop(base, mopCompleteMinimal({ name: 'Nyare tävlingen', date: '2026-09-01' }), {
+    competition: '2',
+  });
+
+  const res = await fetch(`${base}/api/receipt?card=123456`);
+  assert.equal(res.status, 200);
+  const r = await res.json();
+  assert.equal(r.runner.name, 'Anna Andersson');
+  assert.equal(r.competition.name, 'Testtävlingen');
+});
+
+// KRAV-7: delad bricka ska ge en valbar träfflista, inte en gissning
+test('shared card gives 300 with alternatives', async (t) => {
+  const { server, base } = await startServer();
+  t.after(() => server.close());
+  await postMop(base, MOP_COMPLETE);
+  await postMop(base, mopDiffExtraRunner({ name: 'Erik Ek', card: 123456, cls: 2 }));
+
+  const res = await fetch(`${base}/api/receipt?card=123456`);
+  assert.equal(res.status, 300);
+  const body = await res.json();
+  assert.equal(body.alternatives.length, 2);
+  assert.deepEqual(
+    body.alternatives.map((h) => h.name).sort(),
+    ['Anna Andersson', 'Erik Ek']
+  );
 });
 
 test('MOPComplete replaces earlier data for the competition', async (t) => {

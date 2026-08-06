@@ -34,8 +34,24 @@ cp .env.example .env
 
 npm install
 npm start        # http://localhost:3000
-npm test         # kör testsviten (node --test)
+npm test         # enhetstester (node --test)
+npm run bdd      # BDD-scenarier (cucumber-js)
+npm run verify   # båda
 ```
+
+## Arbetssätt: BDD + TDD
+
+Kraven är dokumenterade i [`docs/KRAV.md`](docs/KRAV.md) och formulerade som
+exekverbara Gherkin-scenarier (svenska) i [`features/`](features/). Ett krav
+är uppfyllt när dess scenarier är gröna (`npm run bdd`).
+
+- **BDD:** nya krav skrivs som scenarier *innan* implementation och ska vara
+  röda från start.
+- **TDD:** implementationsdetaljer drivs av enhetstester i `test/` — skriv
+  testet, se det falla, implementera, se det passera.
+- CI-workflow finns i [`docs/github-actions-ci.yml`](docs/github-actions-ci.yml) –
+  flytta den till `.github/workflows/ci.yml` för att köra båda sviterna på
+  varje push och pull request.
 
 ## Konfigurera MeOS
 
