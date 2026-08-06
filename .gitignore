@@ -3,3 +3,8 @@ data/
 dist/
 .env
 *.log
+.DS_Store
+
+# Skarpa resultatfiler från MeOS (innehåller personuppgifter) – testdata
+# hör hemma i test/fixtures/ i avidentifierad form.
+/*.xml
