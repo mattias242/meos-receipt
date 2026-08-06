@@ -139,6 +139,12 @@ export function createApp({
     if (explicitId > 0) {
       cmpId = resolveCmp(params);
       competitorId = explicitId;
+      // En delad länk kan peka på ett id som ersatts sedan den skapades, t.ex.
+      // när MeOS tagit över en löpare som resultatfilen skapat (KRAV-9).
+      const ersatt = store.competitions[cmpId]?.ersattaIds?.[competitorId];
+      if (ersatt && !store.competitions[cmpId].competitors[competitorId]) {
+        competitorId = ersatt;
+      }
     } else {
       const card = parseInt(params.card || '', 10);
       if (!(card > 0)) {

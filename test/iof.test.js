@@ -240,6 +240,33 @@ test('efteranmäld löpare ersätter platshållaren från resultatfilen', async 
   );
 });
 
+// Löparen kan ha delat sin kvittolänk innan MeOS-datat kom – länken bygger på
+// löpar-id, och när platshållaren ersätts skulle den annars ge 404.
+test('delad länk fungerar efter att platshållaren ersatts', async (t) => {
+  const { base, server } = await startServer();
+  t.after(() => server.close());
+  assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
+
+  const före = await (await fetch(`${base}/api/receipt?card=333333`)).json();
+  const delatId = före.runner.id;
+  assert.equal(
+    (await fetch(`${base}/api/receipt?cmp=1&id=${delatId}`)).status,
+    200,
+    'länken fungerar innan'
+  );
+
+  const diff = `<?xml version="1.0"?><MOPDiff xmlns="http://www.melin.nu/mop">
+    <cmp id="55" card="333333"><base org="5" cls="2" stat="1" st="363000" rt="24000">Frida Frisk</base></cmp>
+  </MOPDiff>`;
+  assert.equal(await post(base, '/meos', diff), 'OK');
+
+  const res = await fetch(`${base}/api/receipt?cmp=1&id=${delatId}`);
+  assert.equal(res.status, 200, 'den delade länken ska fortsätta fungera');
+  const efter = await res.json();
+  assert.equal(efter.runner.name, 'Frida Frisk');
+  assert.equal(efter.runner.id, 55, 'och leda till den aktuella posten');
+});
+
 test('två löpare som verkligen delar bricka påverkas inte', async (t) => {
   const { base, server } = await startServer();
   t.after(() => server.close());
