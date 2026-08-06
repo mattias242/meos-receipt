@@ -375,6 +375,10 @@ Then('kvittot visar ingen löptid', function () {
   assert.equal(this.res.body.result.time, '');
 });
 
+Then('kvittot visar ingen starttid', function () {
+  assert.equal(this.res.body.result.startTime, '');
+});
+
 Then('kvittot visar starttid {string} och måltid {string}', function (st, ft) {
   assert.equal(this.res.body.result.startTime, st);
   assert.equal(this.res.body.result.finishTime, ft);

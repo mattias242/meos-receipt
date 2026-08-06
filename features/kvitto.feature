@@ -28,9 +28,16 @@ Egenskap: Digitalt kvitto via bricknummer
     Så visar kvittot status "Ute på banan"
     Och kvittot visar ingen löptid
 
-  Scenario: Löpare som utgått
+  Scenario: Löpare som utgått behåller sin starttid
     När jag hämtar kvittot för bricka 222222
     Så visar kvittot status "Utgått"
+    Och kvittot visar starttid "10:00:00" och måltid ""
+
+  Scenario: Löpare som inte kommit till start visas utan starttid
+    När jag hämtar kvittot för bricka 444444
+    Så visar kvittot status "Ej start"
+    Och kvittot visar ingen starttid
+    Och kvittot visar ingen löptid
 
   Scenario: Preliminärt resultat markeras och får preliminär placering
     Givet att MeOS har skickat en diff där "Carl Carlsson" går i mål

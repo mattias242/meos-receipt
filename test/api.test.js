@@ -82,6 +82,27 @@ test('status texts: on course and DNF', async (t) => {
   assert.equal(r.result.statusText, 'Utgått');
 });
 
+// KRAV-4: den som inte kommit till start ska inte visas med en starttid,
+// även om MeOS har en tilldelad sådan – annars ser kvittot ut som en
+// genomförd start. Den som brutit efter start behåller sin.
+test('starttid visas bara för den som faktiskt startat', async (t) => {
+  const { server, base } = await startServer();
+  t.after(() => server.close());
+  await postMop(base, MOP_COMPLETE);
+
+  const ejStart = await (await fetch(`${base}/api/receipt?card=444444`)).json();
+  assert.equal(ejStart.result.statusText, 'Ej start');
+  assert.equal(ejStart.result.startTime, '', 'ej start ska sakna starttid');
+  assert.equal(ejStart.result.finishTime, '');
+  assert.equal(ejStart.result.time, '');
+
+  const utgatt = await (await fetch(`${base}/api/receipt?card=222222`)).json();
+  assert.equal(utgatt.result.startTime, '10:00:00', 'utgått startade faktiskt');
+
+  const godkand = await (await fetch(`${base}/api/receipt?card=123456`)).json();
+  assert.equal(godkand.result.startTime, '10:00:00');
+});
+
 test('MOPDiff updates a competitor and marks result preliminary', async (t) => {
   const { server, base } = await startServer();
   t.after(() => server.close());

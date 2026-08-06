@@ -1,4 +1,13 @@
-/** Delade MOP-fixturer för enhetstester (test/) och BDD-scenarier (features/). */
+/**
+ * Delade MOP-fixturer för enhetstester (test/) och BDD-scenarier (features/).
+ *
+ * Löparna i MOP_COMPLETE täcker de statusar kvittot måste hantera:
+ *   31 Anna Andersson  (123456) godkänd med radiotider
+ *   32 Berit Bengtsson (654321) godkänd, snabbast i klassen
+ *   33 Carl Carlsson   (111111) ute på banan, inget resultat än
+ *   34 Doris Dahl      (222222) utgått efter start
+ *   35 Eva Ek          (444444) ej start, men med tilldelad starttid
+ */
 
 export const MOP_COMPLETE = `<?xml version="1.0" encoding="UTF-8"?>
 <MOPComplete xmlns="http://www.melin.nu/mop">
@@ -21,6 +30,9 @@ export const MOP_COMPLETE = `<?xml version="1.0" encoding="UTF-8"?>
   </cmp>
   <cmp id="34" card="222222">
     <base org="5" cls="2" stat="4" st="360000" rt="0">Doris Dahl</base>
+  </cmp>
+  <cmp id="35" card="444444">
+    <base org="5" cls="2" stat="20" st="378000" rt="0">Eva Ek</base>
   </cmp>
 </MOPComplete>`;
 
