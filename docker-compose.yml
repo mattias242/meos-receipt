@@ -1,0 +1,18 @@
+# Körning i container på egen server/NAS (Synology Container Manager,
+# QNAP Container Station, Unraid, TrueNAS m.fl. läser denna fil direkt).
+#
+#   MEOS_PASSWORD=hemligt docker compose up -d --build
+#
+# Tävlingsdata sparas i ./data på värden och överlever omstarter.
+services:
+  meos-kvitto:
+    build: .
+    container_name: meos-kvitto
+    ports:
+      - "3000:3000"
+    environment:
+      MEOS_PASSWORD: ${MEOS_PASSWORD:?Sätt MEOS_PASSWORD, t.ex. i en .env-fil}
+      DATA_DIR: /data
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

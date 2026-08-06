@@ -154,6 +154,30 @@ Se KRAV-12 (utgått) i `docs/KRAV.md`.
 | `GET /api/receipt?id=<löpar-id>&cmp=N` | Kvitto via MeOS löpar-id (delningslänk). |
 | `GET /api/health` | Hälsokontroll. |
 
+## Deployment (container på egen NAS/server)
+
+Repots `docker-compose.yml` kör tjänsten i container med persistent
+datamapp – fungerar direkt i Synology Container Manager, QNAP Container
+Station, Unraid, TrueNAS eller vanlig Docker:
+
+```bash
+MEOS_PASSWORD=hemligt docker compose up -d --build
+```
+
+Tjänsten lyssnar på port 3000 och sparar tävlingsdata i `./data`.
+
+**Nåbarhet från internet** (löparna kommer via mobildata):
+
+- **Rekommenderat: Cloudflare Tunnel** – gratis, kräver ingen portöppning
+  eller publik IP (fungerar även bakom CGNAT, vilket många ISP:er kör) och
+  ger automatiskt HTTPS på ett fast värdnamn. Kör `cloudflared` som extra
+  container på NAS:en och peka tunneln mot `http://meos-kvitto:3000`.
+- Alternativt klassisk portöppning + DDNS + omvänd proxy med Lets
+  Encrypt-certifikat (t.ex. NAS:ens inbyggda). Kräver publik IPv4.
+
+Tänk på att hemmauppkopplingen och NAS:en blir en single point of failure
+under tävlingsdagen – ha gärna molnalternativet nedan som reservplan.
+
 ## Deployment (Fly.io)
 
 ```bash
