@@ -79,6 +79,25 @@ test('.env.example speglar det som behövs för att komma igång', () => {
   }
 });
 
+/**
+ * Containern kör UTC om inget annat sägs. Kvittots tider kommer från
+ * MOP-konventionen och är tidszonsoberoende, men "Uppdaterat" formateras med
+ * serverns lokala tid – på en UTC-server ser det ut som att kvittot
+ * uppdaterades före målgången. Alpine saknar dessutom tidszonsdata, så TZ har
+ * ingen effekt utan tzdata.
+ */
+test('tidszonen är satt i alla driftmiljöer', () => {
+  const dockerfile = läs('Dockerfile');
+  assert.match(dockerfile, /ENV TZ=/, 'Dockerfile sätter ingen tidszon');
+  assert.match(
+    dockerfile,
+    /tzdata/,
+    'alpine behöver tzdata, annars ignoreras TZ tyst'
+  );
+  assert.match(läs('docker-compose.yml'), /^\s*TZ:/m, 'docker-compose.yml saknar TZ');
+  assert.match(läs('fly.toml'), /^\s*TZ\s*=/m, 'fly.toml saknar TZ');
+});
+
 test('inga hemligheter ligger i incheckade konfigurationsfiler', () => {
   for (const fil of ['docker-compose.yml', 'fly.toml', '.env.example']) {
     const innehåll = läs(fil);
