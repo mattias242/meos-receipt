@@ -45,3 +45,10 @@ Egenskap: Mottagning av MeOS onlineprotokoll (MOP)
     När MeOS skickar en komplett tävling med tävlings-id 1 och namnet "Omstartad tävling"
     Så finns exakt 1 tävling i tävlingslistan
     Och tävlingen "Omstartad tävling" finns i tävlingslistan
+
+  Scenario: Stämplingar från resultatfilen överlever en omstart av Onlineresultat
+    Givet att tjänsten är igång
+    Och att MeOS har skickat en komplett tävling med tävlings-id 1
+    Och att resultatautomaten har laddat upp en resultatfil
+    När MeOS skickar en komplett tävling med tävlings-id 1
+    Så innehåller kvittot för bricka 123456 stämplingarna "31, 32, 77, 45, 50, Mål"

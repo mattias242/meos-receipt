@@ -165,6 +165,47 @@ test('IOF-fil skapar löpare som saknas i MOP-datat', async (t) => {
   assert.equal(r.result.statusText, 'Godkänd');
 });
 
+// KRAV-2/KRAV-9: MeOS skickar en ny MOPComplete varje gång Onlineresultat
+// startas om. Den nollställer MOP-datat, men stämplingarna kommer från
+// resultatfilen och har en egen källa – utan detta tappar kvittot alla
+// stämplingar tills uppladdningsskriptet hinner skicka filen igen, och för
+// gott om tävlingen redan är avslutad.
+test('stämplingar från resultatfilen överlever en ny MOPComplete', async (t) => {
+  const { base, server } = await startServer();
+  t.after(() => server.close());
+  assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
+  assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
+
+  const före = await (await fetch(`${base}/api/receipt?card=123456`)).json();
+  assert.deepEqual(före.splits.map((s) => s.name), ['31', '32', '77', '45', '50', 'Mål']);
+
+  assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
+
+  const efter = await (await fetch(`${base}/api/receipt?card=123456`)).json();
+  assert.deepEqual(
+    efter.splits.map((s) => s.name),
+    ['31', '32', '77', '45', '50', 'Mål'],
+    'stämplingarna ska inte falla tillbaka till radiotider'
+  );
+  assert.equal(efter.splits[2].status, 'additional');
+  assert.equal(efter.splits[0].leg, '7:30');
+});
+
+test('MOPComplete nollställer fortfarande MOP-ägd data', async (t) => {
+  const { base, server } = await startServer();
+  t.after(() => server.close());
+  assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
+  assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
+
+  // En tävling utan löpare ska tömma deltagarlistan trots bevarade stämplingar
+  assert.equal(
+    await post(base, '/meos', MOP_COMPLETE.replace(/<cmp[\s\S]*?<\/cmp>/g, '')),
+    'OK'
+  );
+  const res = await fetch(`${base}/api/receipt?card=123456`);
+  assert.equal(res.status, 404, 'löparen fanns inte i den nya sändningen');
+});
+
 test('IOF-endpoint kräver rätt lösenord', async (t) => {
   const { server, base } = await startServer({ password: 'hemligt' });
   t.after(() => server.close());

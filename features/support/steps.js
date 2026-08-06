@@ -483,6 +483,18 @@ Then(
   }
 );
 
+Then(
+  'innehåller kvittot för bricka {int} stämplingarna {string}',
+  async function (card, names) {
+    const { status, body } = await getJson(this, `/api/receipt?card=${card}`);
+    assert.equal(status, 200, JSON.stringify(body));
+    assert.deepEqual(
+      body.splits.map((s) => s.name),
+      names.split(',').map((s) => s.trim())
+    );
+  }
+);
+
 Then('visar kvittot för bricka {int} löparen {string}', async function (card, name) {
   const { status, body } = await getJson(this, `/api/receipt?card=${card}`);
   assert.equal(status, 200, JSON.stringify(body));
