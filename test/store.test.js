@@ -72,6 +72,79 @@ test('en läsbar datafil lämnas orörd', async (t) => {
   );
 });
 
+// KRAV-9: sätts MeOS och uppladdningsprogrammet till olika tävlings-id hamnar
+// inflödena i var sin tävling. Allt svarar OK, men placeringen räknas på bara
+// den delmängd av fältet som hamnat där. Kontrollen ligger i store och inte i
+// en av inläsarna, eftersom felet ser likadant ut oavsett vilket inflöde som
+// kom först.
+
+/** Fångar console.warn under testet. */
+function fangaVarningar(t) {
+  const varningar = [];
+  const original = console.warn;
+  console.warn = (...a) => varningar.push(a.join(' '));
+  t.after(() => { console.warn = original; });
+  return varningar;
+}
+
+/** Lägger en tävling med givet namn/datum och bricknummer i store. */
+function laggTavling(store, cid, namn, datum, kort) {
+  const cmp = store.getCompetition(cid);
+  cmp.info.name = namn;
+  cmp.info.date = datum;
+  kort.forEach((card, i) => {
+    cmp.competitors[i + 1] = { name: `Löpare ${i + 1}`, card, cls: 1, org: 1, stat: 1, st: 0, rt: 0 };
+  });
+  store.touch(cid);
+}
+
+test('två tävlingar med samma namn, datum och brickor ger en varning', (t) => {
+  const store = createStore();
+  const varningar = fangaVarningar(t);
+
+  laggTavling(store, 1, 'Testtävlingen', '2026-08-06', [111, 222, 333]);
+  laggTavling(store, 2, 'Testtävlingen', '2026-08-06', [111, 222, 333]);
+
+  assert.equal(varningar.length, 1, `förväntade en varning, fick ${varningar.length}`);
+  assert.match(varningar[0], /tävlings-id/);
+  assert.match(varningar[0], /3 bricknummer/);
+});
+
+test('varningen kommer oavsett vilket inflöde som skapade tävlingen först', (t) => {
+  const store = createStore();
+  const varningar = fangaVarningar(t);
+  // Omvänd ordning mot förra testet – resultatfilen först, MeOS sedan
+  laggTavling(store, 2, 'Testtävlingen', '2026-08-06', [111, 222]);
+  laggTavling(store, 1, 'Testtävlingen', '2026-08-06', [111, 222]);
+  assert.equal(varningar.length, 1);
+});
+
+test('varningen upprepas inte vid varje sändning', (t) => {
+  const store = createStore();
+  const varningar = fangaVarningar(t);
+  laggTavling(store, 1, 'Testtävlingen', '2026-08-06', [111]);
+  laggTavling(store, 2, 'Testtävlingen', '2026-08-06', [111]);
+  for (let i = 0; i < 5; i++) store.touch(2);
+  assert.equal(varningar.length, 1, 'MeOS skickar var tionde sekund – en varning räcker');
+});
+
+test('olika tävlingar med samma löpare varnar inte', (t) => {
+  const store = createStore();
+  const varningar = fangaVarningar(t);
+  // Nästa veckas tävling med samma deltagare – det vanligaste fallet av alla
+  laggTavling(store, 1, 'Testtävlingen', '2026-08-06', [111, 222]);
+  laggTavling(store, 2, 'Nästa tävling', '2026-08-13', [111, 222]);
+  assert.deepEqual(varningar, []);
+});
+
+test('samma namn och datum men utan gemensamma brickor varnar inte', (t) => {
+  const store = createStore();
+  const varningar = fangaVarningar(t);
+  laggTavling(store, 1, 'Vårserien', '2026-08-06', [111, 222]);
+  laggTavling(store, 2, 'Vårserien', '2026-08-06', [777, 888]);
+  assert.deepEqual(varningar, [], 'skilda deltagarfält kan vara etapper eller klasser');
+});
+
 // --- KRAV-14: gallring av gammal tävlingsdata -------------------------------
 
 const DAY = 24 * 60 * 60 * 1000;
