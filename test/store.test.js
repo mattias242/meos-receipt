@@ -240,6 +240,32 @@ test('en tävling utan både updated och datum gallras inte', () => {
   assert.equal(store.listCompetitions().length, 1);
 });
 
+// KRAV-8: sparningen skriver till en tmp-fil och byter sedan namn. Avbryts
+// processen däremellan ligger tmp-filen kvar med hela deltagarfältet, och
+// skrivs bara över om tjänsten sparar igen. Efter tävlingens sista sändning
+// blir den annars liggande.
+test('kvarlämnad tmp-fil städas vid start', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-tmp-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const tmp = path.join(dir, 'competitions.json.tmp');
+  fs.writeFileSync(path.join(dir, 'competitions.json'), '{}');
+  fs.writeFileSync(tmp, '{"1":{"competitors":{"31":{"name":"Anna Andersson"}}}}');
+
+  createStore({ dataDir: dir });
+
+  assert.equal(fs.existsSync(tmp), false, 'en avbruten skrivning ska inte bli liggande');
+  assert.equal(fs.existsSync(path.join(dir, 'competitions.json')), true, 'riktiga filen rörs inte');
+});
+
+test('start utan kvarlämnad tmp-fil fungerar som vanligt', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-tmp-ren-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(dir, 'competitions.json'), '{"1":{"info":{"name":"Test"},"competitors":{}}}');
+
+  const store = createStore({ dataDir: dir });
+  assert.equal(store.getCompetition(1).info.name, 'Test');
+});
+
 // KRAV-14: en oläsbar datafil läggs undan i stället för att skrivas över
 // (KRAV-8). Den innehåller hela deltagarfältet, så den måste gallras enligt
 // samma regel – annars blir en kopia av personuppgifterna kvar för alltid.
