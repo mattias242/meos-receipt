@@ -193,6 +193,33 @@ test('stämplingar från resultatfilen överlever en ny MOPComplete', async (t) 
   assert.equal(efter.splits[0].leg, '7:30');
 });
 
+// Stämplingar bevaras över en MOPComplete (KRAV-2), men bara inom samma
+// tävling. Tävlings-id återanvänds ofta mellan tävlingar, och då skulle förra
+// veckans sträcktider annars följa med in på nästa veckas kvitton.
+test('stämplingar följer inte med till en ny tävling på samma id', async (t) => {
+  const { base, server } = await startServer();
+  t.after(() => server.close());
+  assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
+  assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
+
+  const vecka1 = await (await fetch(`${base}/api/receipt?card=123456`)).json();
+  assert.deepEqual(vecka1.splits.map((s) => s.name), ['31', '32', '77', '45', '50', 'Mål']);
+
+  // Nästa vecka: ny tävling, men samma tävlings-id i MeOS
+  const nästaVecka = MOP_COMPLETE
+    .replace('Testtävlingen', 'Nästa veckas tävling')
+    .replace('date="2026-08-06"', 'date="2026-08-13"');
+  assert.equal(await post(base, '/meos', nästaVecka), 'OK');
+
+  const vecka2 = await (await fetch(`${base}/api/receipt?card=123456`)).json();
+  assert.equal(vecka2.competition.date, '2026-08-13');
+  assert.deepEqual(
+    vecka2.splits.map((s) => s.name),
+    ['Radio 1', 'Förvarning', 'Mål'],
+    'bara den nya tävlingens radiotider – inte förra veckans stämplingar'
+  );
+});
+
 test('MOPComplete nollställer fortfarande MOP-ägd data', async (t) => {
   const { base, server } = await startServer();
   t.after(() => server.close());
