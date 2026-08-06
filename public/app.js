@@ -7,6 +7,7 @@ const receiptEl = document.getElementById('receipt');
 
 let refreshTimer = null;
 let current = null; // {cmp, id} of the shown receipt
+let mailEnabled = false; // sätts från /api/health (KRAV-16)
 
 const esc = (s) =>
   String(s ?? '').replace(/[&<>"']/g, (c) =>
@@ -26,6 +27,15 @@ function clearResults() {
   showMessage('');
   if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
   current = null;
+}
+
+async function loadHealth() {
+  try {
+    const res = await fetch('api/health');
+    mailEnabled = Boolean((await res.json()).email);
+  } catch {
+    mailEnabled = false;
+  }
 }
 
 async function loadCompetitions() {
@@ -114,8 +124,53 @@ function renderReceipt(r) {
       <button type="button" id="shareBtn">Dela kvittot</button>
       <a class="btn" id="pdfBtn" href="api/receipt.pdf?cmp=${r.competition.id}&id=${r.runner.id}">Ladda ner PDF</a>
     </div>
+    <form class="mailRow" id="mailForm" hidden>
+      <label for="mailTo">Få kvittot mejlat som PDF</label>
+      <div class="mailInputs">
+        <input type="email" id="mailTo" placeholder="din@epost.se" required />
+        <button type="submit">Skicka</button>
+      </div>
+      <div class="mailStatus" id="mailStatus" hidden></div>
+    </form>
   `;
   receiptEl.hidden = false;
+
+  // Mejlformuläret visas bara om servern har e-post konfigurerat (KRAV-16).
+  const mailForm = document.getElementById('mailForm');
+  const mailStatus = document.getElementById('mailStatus');
+  if (mailEnabled) mailForm.hidden = false;
+
+  mailForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('mailTo').value.trim();
+    const btn = mailForm.querySelector('button');
+    const setStatus = (text, isError) => {
+      mailStatus.textContent = text;
+      mailStatus.classList.toggle('error', !!isError);
+      mailStatus.hidden = !text;
+    };
+
+    btn.disabled = true;
+    setStatus('Skickar…', false);
+    try {
+      const res = await fetch('api/receipt/email', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ cmp: r.competition.id, id: r.runner.id, email }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStatus(`Kvittot är skickat till ${email}.`, false);
+        mailForm.reset();
+      } else {
+        setStatus(data.error || 'Kunde inte skicka kvittot.', true);
+      }
+    } catch {
+      setStatus('Kunde inte nå servern. Försök igen.', true);
+    } finally {
+      btn.disabled = false;
+    }
+  });
 
   document.getElementById('shareBtn').addEventListener('click', async () => {
     const url = new URL(location.href);
@@ -207,7 +262,7 @@ form.addEventListener('submit', (e) => {
   if (q) search(q);
 });
 
-loadCompetitions().then(() => {
+Promise.all([loadHealth(), loadCompetitions()]).then(() => {
   const params = new URLSearchParams(location.search);
   if (params.get('id') || params.get('card')) {
     const p = {};

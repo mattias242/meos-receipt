@@ -11,6 +11,7 @@ import {
   mopCompleteMinimal,
 } from '../../test/fixtures/mop.js';
 import { IOF_RESULTLIST } from '../../test/fixtures/iof.js';
+import { createMailer } from '../../lib/mailer.js';
 
 setDefaultTimeout(10000);
 
@@ -82,6 +83,37 @@ Given('att tjänsten är igång med datalagring', async function () {
 Given('att tjänsten är igång med datalagring utan gallring', async function () {
   this.dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-bdd-'));
   await start(this, { dataDir: this.dataDir, saveDelayMs: 10, retentionDays: 0 });
+});
+
+/**
+ * Fejkad SMTP-transport: samlar mejlen i minnet i stället för att skicka dem.
+ * Inget scenario får nå en riktig e-postserver.
+ */
+function fakeMailer(world, { failing = false } = {}) {
+  world.sent = [];
+  return createMailer({
+    from: 'Digitalt kvitto <kvitto@example.test>',
+    transport: {
+      async sendMail(message) {
+        if (failing) throw new Error('SMTP 535 Authentication failed for user postmaster@…');
+        world.sent.push(message);
+        return { messageId: `test-${world.sent.length}` };
+      },
+    },
+  });
+}
+
+Given('att tjänsten är igång med e-postutskick', async function () {
+  await start(this, { mailer: fakeMailer(this) });
+});
+
+Given('att tjänsten är igång utan e-postutskick', async function () {
+  this.sent = [];
+  await start(this, { mailer: null });
+});
+
+Given('att tjänsten är igång med e-postutskick som misslyckas', async function () {
+  await start(this, { mailer: fakeMailer(this, { failing: true }) });
 });
 
 Given('att MeOS har skickat en komplett tävling med tävlings-id {int}', async function (cmp) {
@@ -178,6 +210,26 @@ When('jag laddar ner kvittot som PDF för bricka {int}', async function (card) {
   };
 });
 
+async function postEmail(world, card, email) {
+  const res = await fetch(`${world.base}/api/receipt/email`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ card, email }),
+  });
+  return { status: res.status, body: await res.json() };
+}
+
+When('jag mejlar kvittot för bricka {int} till {string}', async function (card, email) {
+  this.mail = await postEmail(this, card, email);
+});
+
+When('jag mejlar kvittot för bricka {int} till {int} olika adresser', async function (card, n) {
+  this.mails = [];
+  for (let i = 1; i <= n; i++) {
+    this.mails.push(await postEmail(this, card, `loparen${i}@example.org`));
+  }
+});
+
 When('jag söker på {string}', async function (q) {
   await getJson(this, `/api/search?q=${encodeURIComponent(q)}`);
 });
@@ -238,6 +290,45 @@ Then('PDF:en innehåller texten {string}', function (text) {
 
 Then('blir PDF-svaret {int}', function (code) {
   assert.equal(this.pdf.status, code);
+});
+
+Then('blir mejlsvaret {int}', function (code) {
+  assert.equal(this.mail.status, code, JSON.stringify(this.mail.body));
+});
+
+Then('skickas ett mejl till {string}', function (to) {
+  assert.equal(this.sent.length, 1, `förväntade 1 mejl, fick ${this.sent.length}`);
+  assert.equal(this.sent[0].to, to);
+});
+
+Then('mejlet har en PDF-bilaga', function () {
+  const [attachment] = this.sent[0].attachments || [];
+  assert.ok(attachment, 'mejlet saknar bilaga');
+  assert.equal(attachment.contentType, 'application/pdf');
+  assert.match(attachment.filename, /\.pdf$/);
+  assert.equal(attachment.content.subarray(0, 5).toString(), '%PDF-');
+});
+
+Then('mejlets ämne innehåller {string}', function (text) {
+  assert.ok(this.sent[0].subject.includes(text), `ämnet var: ${this.sent[0].subject}`);
+});
+
+Then('skickas inga mejl', function () {
+  assert.equal(this.sent.length, 0, `${this.sent.length} mejl skickades ändå`);
+});
+
+Then('blir minst ett av svaren {int}', function (code) {
+  const koder = this.mails.map((m) => m.status);
+  assert.ok(koder.includes(code), `ingen ${code} bland ${koder.join(', ')}`);
+});
+
+Then('skickas färre än {int} mejl', function (n) {
+  assert.ok(this.sent.length < n, `${this.sent.length} mejl skickades`);
+});
+
+Then('innehåller felmeddelandet inte {string}', function (text) {
+  const body = JSON.stringify(this.mail.body);
+  assert.ok(!body.includes(text), `felmeddelandet läckte "${text}": ${body}`);
 });
 
 Then('blir svaret {string}', function (expected) {

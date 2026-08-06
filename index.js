@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { createApp } from './server.js';
 import { lanUrls } from './lib/lan.js';
+import { createMailerFromEnv } from './lib/mailer.js';
 
 const port = parseInt(process.env.PORT || '3000', 10);
 const dataDir = process.env.DATA_DIR || './data';
@@ -12,7 +13,13 @@ if (!password) {
   console.warn('VARNING: MEOS_PASSWORD är inte satt – alla kan skicka data till /meos.');
 }
 
-const app = createApp({ dataDir, password, retentionDays });
+// KRAV-16: e-postutskick via Mailgun. Saknas credentials är funktionen av.
+const mailer = createMailerFromEnv();
+if (!mailer) {
+  console.warn('E-postutskick av kvitto är avstängt (MAILGUN_SMTP/USER/PWD saknas).');
+}
+
+const app = createApp({ dataDir, password, retentionDays, mailer });
 app.listen(port, () => {
   console.log(`MeOS digitalt kvitto lyssnar på http://localhost:${port}`);
   console.log('MeOS onlineresultat (MOP) tas emot på POST /meos, resultatfiler på POST /iof');

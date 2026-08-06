@@ -6,6 +6,7 @@ import { applyMop } from './lib/mop.js';
 import { applyIof } from './lib/iof.js';
 import { buildReceipt, searchCompetitors } from './lib/receipt.js';
 import { renderReceiptPdf, receiptFilename } from './lib/pdf.js';
+import { isValidEmail, createRateLimiter } from './lib/mailer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -21,8 +22,11 @@ export function createApp({
   saveDelayMs = 2000,
   retentionDays = 90,
   now = undefined,
+  mailer = null,
+  emailRateLimit = {},
 } = {}) {
   const store = createStore({ dataDir, saveDelayMs, retentionDays, now });
+  const emailLimiter = createRateLimiter(emailRateLimit);
   const app = express();
   app.disable('x-powered-by');
 
@@ -69,9 +73,9 @@ export function createApp({
     res.json(store.listCompetitions());
   });
 
-  // Resolve which competition to use: explicit ?cmp= or the most recent one.
-  function resolveCmp(req) {
-    const explicit = parseInt(req.query.cmp || '', 10);
+  // Resolve which competition to use: explicit cmp or the most recent one.
+  function resolveCmp(params) {
+    const explicit = parseInt(params.cmp || '', 10);
     if (explicit > 0 && store.competitions[explicit]) return explicit;
     const list = store.listCompetitions();
     return list.length ? list[0].id : null;
@@ -109,27 +113,28 @@ export function createApp({
   }
 
   /**
-   * Löser upp ?card=/?id=/?cmp= till ett kvitto. Returnerar antingen
-   * { receipt } eller { status, body } som svar rakt av – delas av
-   * JSON-kvittot och PDF-nedladdningen (KRAV-15).
+   * Löser upp card/id/cmp till ett kvitto. Returnerar antingen { receipt }
+   * eller { status, body } som svar rakt av – delas av JSON-kvittot,
+   * PDF-nedladdningen (KRAV-15) och mejlutskicket (KRAV-16), som tar samma
+   * parametrar men från query respektive body.
    */
-  function resolveReceipt(req) {
+  function resolveReceipt(params) {
     if (store.listCompetitions().length === 0) {
       return { status: 404, body: { error: 'Ingen tävling inläst ännu.' } };
     }
 
     let cmpId, competitorId;
-    const explicitId = parseInt(req.query.id || '', 10);
+    const explicitId = parseInt(params.id || '', 10);
     if (explicitId > 0) {
-      cmpId = resolveCmp(req);
+      cmpId = resolveCmp(params);
       competitorId = explicitId;
     } else {
-      const card = parseInt(req.query.card || '', 10);
+      const card = parseInt(params.card || '', 10);
       if (!(card > 0)) {
         return { status: 400, body: { error: 'Ange bricknummer (card) eller löpar-id (id).' } };
       }
 
-      const explicit = parseInt(req.query.cmp || '', 10);
+      const explicit = parseInt(params.cmp || '', 10);
       const found = findByCard(card, explicit > 0 && store.competitions[explicit] ? explicit : null);
       if (!found) {
         return { status: 404, body: { error: `Ingen löpare med bricka ${card} hittades.` } };
@@ -153,14 +158,14 @@ export function createApp({
   }
 
   app.get('/api/receipt', (req, res) => {
-    const { receipt, status, body } = resolveReceipt(req);
+    const { receipt, status, body } = resolveReceipt(req.query);
     if (!receipt) return res.status(status).json(body);
     res.json(receipt);
   });
 
   // Kvittot som nedladdningsbar PDF (KRAV-15).
   app.get('/api/receipt.pdf', (req, res) => {
-    const { receipt, status, body } = resolveReceipt(req);
+    const { receipt, status, body } = resolveReceipt(req.query);
     if (!receipt) return res.status(status).json(body);
 
     const pdf = renderReceiptPdf(receipt);
@@ -169,8 +174,45 @@ export function createApp({
     res.send(pdf);
   });
 
+  // Kvittot mejlat som PDF-bilaga (KRAV-16).
+  app.post('/api/receipt/email', express.json({ limit: '4kb' }), async (req, res) => {
+    if (!mailer) {
+      return res.status(503).json({ error: 'E-postutskick är inte aktiverat på den här servern.' });
+    }
+
+    const to = String(req.body?.email ?? '').trim();
+    if (!isValidEmail(to)) {
+      return res.status(400).json({ error: 'Ange en giltig e-postadress.' });
+    }
+
+    const { receipt, status, body } = resolveReceipt(req.body ?? {});
+    if (!receipt) return res.status(status).json(body);
+
+    // Taket gäller per avsändar-IP, inte per mottagare: annars räcker det med
+    // att byta adress för att skicka hur många mejl som helst.
+    if (!emailLimiter.allow(req.ip || 'okänd')) {
+      return res.status(429).json({
+        error: 'För många utskick från den här enheten. Försök igen om en stund.',
+      });
+    }
+
+    try {
+      await mailer.sendReceipt({ to, receipt });
+      res.json({ ok: true, sent: to });
+    } catch (err) {
+      // Leverantörens felmeddelanden kan innehålla konto- och serverdetaljer –
+      // logga dem, men skicka aldrig vidare dem till klienten.
+      console.error('Kunde inte skicka kvitto per e-post:', err.message);
+      res.status(502).json({ error: 'Kvittot kunde inte mejlas just nu. Försök igen senare.' });
+    }
+  });
+
   app.get('/api/health', (req, res) => {
-    res.json({ ok: true, competitions: store.listCompetitions().length });
+    res.json({
+      ok: true,
+      competitions: store.listCompetitions().length,
+      email: Boolean(mailer), // styr om kvittosidan visar mejlformuläret
+    });
   });
 
   // --- Static frontend -----------------------------------------------------

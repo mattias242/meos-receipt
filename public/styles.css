@@ -192,6 +192,40 @@ main {
 }
 .shareRow .btn:hover, .shareRow button:hover { background: #f0f0f0; }
 
+/* Mejla kvittot (KRAV-16) */
+.mailRow {
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px dashed #bbb;
+  text-align: center;
+}
+.mailRow label { display: block; font-size: 0.8rem; color: #555; margin-bottom: 0.5rem; }
+.mailInputs { display: flex; gap: 0.4rem; justify-content: center; }
+.mailInputs input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  border: 1px solid #bbb;
+  border-radius: 0.4rem;
+  background: #fff;
+  color: #000;
+}
+.mailInputs button {
+  border: 1px solid #000;
+  background: #000;
+  color: #fff;
+  border-radius: 0.4rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.mailInputs button:disabled { opacity: 0.5; cursor: default; }
+.mailStatus { margin-top: 0.5rem; font-size: 0.8rem; color: #1a7a3c; }
+.mailStatus.error { color: #b03030; }
+
 footer {
   text-align: center;
   color: var(--muted);
