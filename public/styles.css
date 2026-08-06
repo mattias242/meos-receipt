@@ -1,17 +1,24 @@
+/* Färger och typografi följer klubbsajten stenungsundsok.se: röd topprad,
+   blått navigationsband, vit innehållsyta, röda rubriker och svart sidfot.
+   Roboto hämtas inte externt – systemstacken ger Roboto där den finns och
+   något mycket likt annars, utan att sidan blir beroende av en CDN. */
 :root {
-  --bg: #eef1ee;
-  --ink: #1c211d;
-  --accent: #1a3c2e;
-  --paper: #fffdf7;
-  --muted: #6b736c;
-  --line: #d8dcd8;
+  --rod: #d93f3f;
+  --rod-mork: #c33030;
+  --bla: #315e9c;
+  --bg: #fff;
+  --ink: #212529;
+  --accent: var(--bla);
+  --paper: #fff;
+  --muted: #6c757d;
+  --line: #dee2e6;
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: Roboto, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
   background: var(--bg);
   color: var(--ink);
   min-height: 100vh;
@@ -19,21 +26,41 @@ body {
   flex-direction: column;
 }
 
-header {
-  background: var(--accent);
-  color: #fff;
-  padding: 1.2rem 1rem 1rem;
-  text-align: center;
+header { color: #fff; }
+.topbar { background: var(--rod); }
+.navbar { background: var(--bla); }
+/* Samma bredd som main, så att bandens text ligger i linje med rubriken. */
+.bar-inner {
+  width: 100%;
+  max-width: 30rem;
+  margin: 0 auto;
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
 }
-header h1 { margin: 0; font-size: 1.4rem; letter-spacing: 0.02em; }
-header .sub { margin: 0.4rem auto 0; max-width: 26rem; font-size: 0.85rem; opacity: 0.85; }
+.brand { font-size: 1.25rem; font-weight: 700; letter-spacing: 0.01em; }
+.navText { font-size: 0.95rem; font-weight: 500; }
 
 main {
   flex: 1;
   width: 100%;
   max-width: 30rem;
   margin: 0 auto;
-  padding: 1rem;
+  padding: 1.5rem 1rem 1rem;
+}
+
+main h1 {
+  margin: 0 0 0.3rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--rod-mork);
+}
+main .lead {
+  margin: 0 0 1.2rem;
+  font-size: 0.95rem;
+  color: var(--muted);
+  line-height: 1.5;
 }
 
 #searchForm select {
@@ -49,29 +76,40 @@ main {
 .searchRow { display: flex; gap: 0.5rem; }
 .searchRow input {
   flex: 1;
+  min-width: 0;
   padding: 0.7rem 0.8rem;
   font-size: 1.05rem;
-  border: 1px solid var(--line);
-  border-radius: 0.5rem;
+  font-family: inherit;
+  border: 1px solid #ced4da;
+  border-radius: 0.35rem;
 }
 .searchRow button {
-  padding: 0.7rem 1.2rem;
+  padding: 0.7rem 1.4rem;
   font-size: 1.05rem;
+  font-family: inherit;
+  font-weight: 500;
   border: none;
-  border-radius: 0.5rem;
-  background: var(--accent);
+  border-radius: 0.35rem;
+  background: var(--bla);
   color: #fff;
   cursor: pointer;
 }
+.searchRow button:hover { background: #274c7f; }
 .searchRow button:active { opacity: 0.85; }
+.searchRow input:focus, #searchForm select:focus, .mailInputs input:focus {
+  outline: 2px solid var(--bla);
+  outline-offset: 1px;
+}
 
 .message {
   margin-top: 1rem;
   padding: 0.8rem 1rem;
-  background: #fff4e5;
-  border: 1px solid #f0ddc0;
-  border-radius: 0.5rem;
+  background: #fdf2f2;
+  border: 1px solid #f5c6cb;
+  border-left: 3px solid var(--rod);
+  border-radius: 0.35rem;
   font-size: 0.95rem;
+  color: #7d2b2b;
 }
 
 .hits {
@@ -82,9 +120,11 @@ main {
 .hits li {
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 0.5rem;
+  border-left: 3px solid var(--bla);
+  border-radius: 0.35rem;
   margin-bottom: 0.5rem;
 }
+.hits li:hover { background: #f8f9fa; }
 .hits button {
   width: 100%;
   text-align: left;
@@ -228,24 +268,14 @@ main {
 .mailStatus.error { color: #b03030; }
 
 footer {
+  margin-top: 2rem;
+  background: #000;
+  color: #adb5bd;
   text-align: center;
-  color: var(--muted);
   font-size: 0.8rem;
-  padding: 1.5rem 1rem 2rem;
+  padding: 1.5rem 1rem;
 }
-footer a { color: inherit; }
+footer a { color: #fff; }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #161a17;
-    --ink: #e7ebe7;
-    --paper: #20261f;
-    --muted: #9aa39b;
-    --line: #39413a;
-  }
-  #searchForm select, .searchRow input, .hits li { background: #242b25; color: var(--ink); }
-  .message { background: #33291a; border-color: #4d3d22; }
-  .hits button { color: var(--ink); }
-  /* Kvittot behåller sitt vita papper och sina färger även här. */
-  .receipt { box-shadow: 0 2px 14px rgba(0,0,0,0.6); }
-}
+/* Ingen mörk variant: sidan följer klubbsajtens ljusa utseende, och kvittot
+   ska vara vitt papper med svart text oavsett systeminställning. */
