@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseIofResultList } from '../lib/iof.js';
+import { parseIofResultList, applyIof } from '../lib/iof.js';
+import { createStore } from '../lib/store.js';
+import { applyMop } from '../lib/mop.js';
 import { createApp } from '../server.js';
 import { MOP_COMPLETE } from './fixtures/mop.js';
 import { IOF_RESULTLIST } from './fixtures/iof.js';
@@ -251,6 +253,71 @@ test('två löpare som verkligen delar bricka påverkas inte', async (t) => {
   const res = await fetch(`${base}/api/receipt?card=123456`);
   assert.equal(res.status, 300, 'delad bricka ska fortfarande ge en valbar lista');
   assert.equal((await res.json()).alternatives.length, 2);
+});
+
+// KRAV-9: skickas MeOS och uppladdningsskriptet till olika tävlings-id hamnar
+// inflödena i skilda tävlingar. Båda svarar OK, men löparen får placering
+// räknad på bara en delmängd av fältet. Tjänsten kan se det – brickorna finns
+// ju i en annan tävling – och ska säga till i loggen.
+test('resultatfil till fel tävling ger en varning i loggen', async (t) => {
+  const store = createStore();
+  applyMop(store, 1, MOP_COMPLETE);
+
+  const varningar = [];
+  const original = console.warn;
+  console.warn = (...a) => varningar.push(a.join(' '));
+  t.after(() => { console.warn = original; });
+
+  applyIof(store, 2, IOF_RESULTLIST); // fel tävlings-id
+
+  assert.equal(varningar.length, 1, `förväntade en varning, fick ${varningar.length}`);
+  assert.match(varningar[0], /2/, 'varningen ska nämna tävlingen filen skickades till');
+  assert.match(varningar[0], /1/, 'och tävlingen där brickorna finns');
+});
+
+test('resultatfil till rätt tävling varnar inte', async (t) => {
+  const store = createStore();
+  applyMop(store, 1, MOP_COMPLETE);
+
+  const varningar = [];
+  const original = console.warn;
+  console.warn = (...a) => varningar.push(a.join(' '));
+  t.after(() => { console.warn = original; });
+
+  applyIof(store, 1, IOF_RESULTLIST);
+  assert.deepEqual(varningar, []);
+});
+
+test('första resultatfilen för en ny tävling varnar inte', async (t) => {
+  const store = createStore();
+  const varningar = [];
+  const original = console.warn;
+  console.warn = (...a) => varningar.push(a.join(' '));
+  t.after(() => { console.warn = original; });
+
+  applyIof(store, 1, IOF_RESULTLIST); // inget MOP-data alls ännu – helt normalt
+  assert.deepEqual(varningar, []);
+});
+
+test('samma löpare i nästa tävling ger ingen falsk varning', async (t) => {
+  const store = createStore();
+  applyMop(store, 1, MOP_COMPLETE);
+  applyIof(store, 1, IOF_RESULTLIST);
+
+  const varningar = [];
+  const original = console.warn;
+  console.warn = (...a) => varningar.push(a.join(' '));
+  t.after(() => { console.warn = original; });
+
+  // Nästa veckas tävling: samma deltagare och samma brickor, men en annan
+  // tävling – det vanligaste fallet av alla och absolut inget fel.
+  applyIof(
+    store,
+    2,
+    IOF_RESULTLIST.replace('<Name>Testtävlingen</Name>', '<Name>Nästa tävling</Name>')
+      .replace('<Date>2026-08-06</Date>', '<Date>2026-08-13</Date>')
+  );
+  assert.deepEqual(varningar, [], 'en ny tävling med samma löpare är normalt');
 });
 
 test('IOF-endpoint kräver rätt lösenord', async (t) => {
