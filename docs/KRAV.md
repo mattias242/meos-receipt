@@ -27,11 +27,16 @@ grönt.
 
 ## Arbetssätt
 
+- **Trunk-based:** allt arbete sker i små commits direkt på `main`. Varje
+  commit ska lämna trunken grön (`npm run verify`).
 - **BDD:** Nya krav formuleras som scenarier i `features/` innan implementation
-  påbörjas. Ett krav är uppfyllt när dess scenarier är gröna.
+  påbörjas. Ett krav är uppfyllt när dess scenarier är gröna. Rött-till-grönt
+  hålls ihop i samma commit på trunken; ett scenario som ska ligga kvar och
+  vänta på implementation taggas `@wip` (körs inte av `npm run bdd`, kör dem
+  medvetet med `npx cucumber-js -t @wip`).
 - **TDD:** Implementationsdetaljer (parsning, tidsformat, placering m.m.) drivs
   av enhetstester i `test/` (`npm test`). Skriv testet först, se det falla,
-  implementera, se det passera, refaktorera.
+  implementera, se det passera, refaktorera – och committa rött+grönt ihop.
 - **Definition of done:** `npm test` och `npm run bdd` gröna.
 
 ## Avgränsningar
