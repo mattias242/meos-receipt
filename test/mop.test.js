@@ -97,6 +97,56 @@ test('lagets medlemmar läses in per sträcka', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Avanmälan (KRAV-2): MOP:s delete-attribut
+// ---------------------------------------------------------------------------
+
+/** MOPDiff som tar bort ett element, som när MeOS avanmäler någon. */
+function mopRadera(element, id) {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<MOPDiff xmlns="http://www.melin.nu/mop">
+  <${element} id="${id}" delete="true"></${element}>
+</MOPDiff>`;
+}
+
+test('en avanmäld löpare tas bort ur tävlingen', () => {
+  const store = createStore();
+  applyMop(store, 1, MOP_STAFETT);
+  assert.ok(store.competitions[1].competitors[41]);
+
+  applyMop(store, 1, mopRadera('cmp', 41));
+  assert.equal(store.competitions[1].competitors[41], undefined);
+  assert.ok(store.competitions[1].competitors[42], 'övriga löpare rörs inte');
+});
+
+test('kvittot för en avanmäld löpare finns inte längre', () => {
+  const store = createStore();
+  applyMop(store, 1, MOP_STAFETT);
+  applyMop(store, 1, mopRadera('cmp', 41));
+  assert.equal(buildReceipt(store.competitions[1], 1, 41), null);
+});
+
+test('ett struket lag tas bort', () => {
+  const store = createStore();
+  applyMop(store, 1, MOP_STAFETT);
+  assert.ok(store.competitions[1].teams[7]);
+
+  applyMop(store, 1, mopRadera('tm', 7));
+  assert.equal(store.competitions[1].teams[7], undefined);
+  // Löparna finns kvar, men utan lagnamn
+  assert.equal(buildReceipt(store.competitions[1], 1, 41).runner.team, '');
+});
+
+test('en borttagen klubb tas bort', () => {
+  const store = createStore();
+  applyMop(store, 1, MOP_STAFETT);
+  assert.ok(store.competitions[1].orgs[5]);
+
+  applyMop(store, 1, mopRadera('org', 5));
+  assert.equal(store.competitions[1].orgs[5], undefined);
+  assert.equal(buildReceipt(store.competitions[1], 1, 41).runner.club, '');
+});
+
+// ---------------------------------------------------------------------------
 // Delformat (KRAV-1)
 // ---------------------------------------------------------------------------
 
