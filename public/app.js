@@ -30,31 +30,25 @@ function clearResults() {
 }
 
 async function loadHealth() {
-  try {
-    const res = await fetch('api/health');
-    mailEnabled = Boolean((await res.json()).email);
-  } catch {
-    mailEnabled = false;
-  }
+  const res = await anrop('api/health');
+  mailEnabled = Boolean(res.data.email);
 }
 
 async function loadCompetitions() {
-  try {
-    const res = await fetch('api/competitions');
-    const list = await res.json();
-    if (list.length > 1) {
-      cmpSelect.innerHTML = list
-        .map((c) => `<option value="${c.id}">${esc(c.name)} (${esc(c.date)})</option>`)
-        .join('');
-      cmpSelect.hidden = false;
-    } else {
-      cmpSelect.hidden = true;
-    }
-    if (list.length === 0) {
-      showMessage('Ingen tävling är inläst ännu. Kvittot blir tillgängligt när tävlingen skickar resultat.');
-    }
-  } catch {
-    /* offline – ignore */
+  const res = await anrop('api/competitions');
+  const list = Array.isArray(res.data) ? res.data : [];
+  if (list.length > 1) {
+    cmpSelect.innerHTML = list
+      .map((c) => `<option value="${c.id}">${esc(c.name)} (${esc(c.date)})</option>`)
+      .join('');
+    cmpSelect.hidden = false;
+  } else {
+    cmpSelect.hidden = true;
+  }
+  // Utan kontakt säger sökningen ifrån när löparen försöker – ingen anledning
+  // att påstå att tävlingen saknas.
+  if (list.length === 0 && !res.offline) {
+    showMessage('Ingen tävling är inläst ännu. Kvittot blir tillgängligt när tävlingen skickar resultat.');
   }
 }
 
@@ -154,24 +148,20 @@ function renderReceipt(r) {
 
     btn.disabled = true;
     setStatus('Skickar…', false);
-    try {
-      const res = await fetch('api/receipt/email', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ cmp: r.competition.id, id: r.runner.id, email }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setStatus(`Kvittot är skickat till ${email}.`, false);
-        mailForm.reset();
-      } else {
-        setStatus(data.error || 'Kunde inte skicka kvittot.', true);
-      }
-    } catch {
-      setStatus('Kunde inte nå servern. Försök igen.', true);
-    } finally {
-      btn.disabled = false;
+    const res = await anrop('api/receipt/email', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ cmp: r.competition.id, id: r.runner.id, email }),
+    });
+    if (res.offline) {
+      setStatus('Ingen kontakt med tjänsten. Försök igen.', true);
+    } else if (res.ok) {
+      setStatus(`Kvittot är skickat till ${email}.`, false);
+      mailForm.reset();
+    } else {
+      setStatus(res.data.error || 'Kunde inte skicka kvittot.', true);
     }
+    btn.disabled = false;
   });
 
   document.getElementById('shareBtn').addEventListener('click', async () => {
@@ -200,10 +190,37 @@ function renderHits(hits) {
   hitsEl.hidden = false;
 }
 
+/**
+ * Alla anrop till tjänsten går genom den här: löparna är på mobildata vid
+ * arenan (KRAV-13), och tappad täckning ska ge ett begripligt besked i stället
+ * för en sida som ser ut att hänga. Returnerar { offline: true } när anropet
+ * inte kom fram alls.
+ */
+async function anrop(url, opts) {
+  try {
+    const res = await fetch(url, opts);
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = null; // svar utan JSON-kropp
+    }
+    return { ok: res.ok, status: res.status, data: data ?? {} };
+  } catch {
+    return { offline: true, ok: false, status: 0, data: {} };
+  }
+}
+
 async function loadReceipt(params, { silent = false } = {}) {
   const qs = new URLSearchParams(params);
-  const res = await fetch('api/receipt?' + qs.toString());
-  const data = await res.json();
+  const res = await anrop('api/receipt?' + qs.toString());
+  if (res.offline) {
+    // Under automatisk uppdatering: behåll kvittot som visas och tig, annars
+    // blinkar ett felmeddelande varje gång täckningen glappar.
+    if (!silent) showMessage('Ingen kontakt med tjänsten. Kontrollera uppkopplingen.');
+    return;
+  }
+  const data = res.data;
   if (res.status === 300 && data.alternatives) {
     // Flera löpare delar brickan – låt användaren välja.
     showMessage('Flera löpare har den brickan – välj i listan.');
@@ -236,8 +253,12 @@ async function search(q) {
   clearResults();
   const params = new URLSearchParams({ q });
   if (!cmpSelect.hidden) params.set('cmp', cmpSelect.value);
-  const res = await fetch('api/search?' + params.toString());
-  const hits = await res.json();
+  const res = await anrop('api/search?' + params.toString());
+  if (res.offline) {
+    showMessage('Ingen kontakt med tjänsten. Kontrollera uppkopplingen och försök igen.');
+    return;
+  }
+  const hits = res.data;
   if (!res.ok) {
     showMessage(hits.error || 'Sökningen misslyckades.');
     return;
