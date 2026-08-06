@@ -86,8 +86,8 @@ function renderReceipt(r) {
           : s.status === 'additional'
             ? ' <span class="badge extra">extra</span>'
             : '';
-      return `<tr${s.status === 'missing' ? ' class="missRow"' : ''}>
-        <td>${esc(s.name)}${badge}</td>
+      return `<tr class="splitsBody${s.status === 'missing' ? ' missRow' : ''}">
+        <th scope="row">${esc(s.name)}${badge}</th>
         <td class="num">${esc(s.leg) || '–'}</td>
         <td class="num">${esc(s.elapsed) || '–'}</td>
         <td class="num">${esc(s.clock) || '–'}</td>
@@ -119,14 +119,14 @@ function renderReceipt(r) {
     ${res.after ? `<div class="place">Efter segraren: ${esc(res.after)}</div>` : ''}
     <hr />
     <table>
-      <tr><th>Starttid</th><td class="num">${esc(res.startTime) || '–'}</td></tr>
-      ${res.finishTime ? `<tr><th>Måltid</th><td class="num">${esc(res.finishTime)}</td></tr>` : ''}
+      <tr><th scope="row">Starttid</th><td class="num">${esc(res.startTime) || '–'}</td></tr>
+      ${res.finishTime ? `<tr><th scope="row">Måltid</th><td class="num">${esc(res.finishTime)}</td></tr>` : ''}
     </table>
     ${
       r.splits.length
         ? `<hr />
       <table>
-        <tr class="splitsHead"><th>Kontroll</th><th class="num">Sträcka</th><th class="num">Total</th><th class="num">Klocka</th></tr>
+        <tr class="splitsHead"><th scope="col">Kontroll</th><th scope="col" class="num">Sträcka</th><th scope="col" class="num">Total</th><th scope="col" class="num">Klocka</th></tr>
         ${rows}
       </table>`
         : res.startTime

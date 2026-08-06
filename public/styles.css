@@ -192,7 +192,10 @@ main .lead {
 
 .receipt table { width: 100%; border-collapse: collapse; margin-top: 0.3rem; }
 .receipt td, .receipt th { padding: 0.22rem 0; vertical-align: top; }
+/* Rubrikceller är gråa (Starttid, Måltid, kolumnrubriker), men kontrollnumret
+   i sträcktabellen är radens rubrik och ska läsas som vanlig text. */
 .receipt th { text-align: left; font-weight: 400; color: var(--muted); }
+.receipt .splitsBody th { color: var(--ink); }
 .receipt td.num, .receipt th.num { text-align: right; white-space: nowrap; }
 
 .receipt .bigTime {
