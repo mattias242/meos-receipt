@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "test": "node --test"
+    "test": "node --test",
+    "bdd": "cucumber-js",
+    "verify": "npm test && npm run bdd"
   },
   "engines": {
     "node": ">=18.18"
@@ -16,5 +18,8 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "fast-xml-parser": "^4.4.1"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^13.2.1"
   }
 }

@@ -1,0 +1,38 @@
+# Krav – Digitalt kvitto för MeOS
+
+Kraven är dokumenterade som exekverbara BDD-scenarier (Gherkin, svenska) i
+[`features/`](../features/). Varje krav nedan spåras till en egenskap och sina
+scenarier; scenarierna körs med `npm run bdd` och är den auktoritativa
+definitionen av "klart". Implementation sker med TDD: scenariot/enhetstestet
+skrivs först (rött), därefter implementeras minsta möjliga kod tills det är
+grönt.
+
+## Kravlista
+
+| Krav | Beskrivning | Egenskap (feature-fil) |
+| --- | --- | --- |
+| KRAV-1 | Tjänsten tar emot tävlingsdata via MeOS onlineprotokoll (MOP 2.0) med tävlings-id och lösenord i HTTP-headers, och svarar med samma statuskoder som MeOS referensimplementation (`OK`, `BADCMP`, `BADPWD`, `NOZIP`, `ERROR`). | `features/mop-mottagning.feature` |
+| KRAV-2 | `MOPComplete` ersätter all data för tävlingen; `MOPDiff` uppdaterar befintlig data utan att radera annat. | `features/mop-mottagning.feature` |
+| KRAV-3 | En löpare kan hämta sitt digitala kvitto med sitt SportIdent-nummer. Kvittot visar namn, klubb, klass, löptid, status, placering, tid efter segraren, start-/måltid samt sträcktider (radiokontroller + mål) med sträck-, total- och klocktid. | `features/kvitto.feature` |
+| KRAV-4 | Status visas begripligt på svenska: godkänd, felstämplad, utgått, ej start m.fl. En löpare som startat men saknar resultat visas som "Ute på banan". Preliminära resultat markeras och får preliminär placering. | `features/kvitto.feature` |
+| KRAV-5 | Löpare kan även sökas på namn (delsträng, skiftlägesokänsligt). Träfflistan visar namn, klubb, klass och bricka. | `features/sokning.feature` |
+| KRAV-6 | Ett bricknummer som inte finns i den senaste tävlingen men i en tidigare inläst tävling ger ändå träff (senaste tävling där brickan förekommer). | `features/sokning.feature` |
+| KRAV-7 | Om flera löpare delar samma bricka i en tävling svarar kvitto-API:t med en valbar träfflista i stället för att gissa. | `features/kvitto.feature` |
+| KRAV-8 | Inläst tävlingsdata överlever en omstart av tjänsten. | `features/persistens.feature` |
+
+## Arbetssätt
+
+- **BDD:** Nya krav formuleras som scenarier i `features/` innan implementation
+  påbörjas. Ett krav är uppfyllt när dess scenarier är gröna.
+- **TDD:** Implementationsdetaljer (parsning, tidsformat, placering m.m.) drivs
+  av enhetstester i `test/` (`npm test`). Skriv testet först, se det falla,
+  implementera, se det passera, refaktorera.
+- **Definition of done:** `npm test` och `npm run bdd` gröna.
+
+## Avgränsningar
+
+- MOP-protokollet innehåller endast radiotider. Kompletta stämplingar per
+  kontroll skickas inte av MeOS, så kvittot visar mellantider vid
+  radiokontroller samt måltid.
+- Zip-komprimerade sändningar stöds inte; tjänsten svarar `NOZIP` vilket får
+  MeOS att sända om okomprimerat (samma beteende som referensimplementationen).
