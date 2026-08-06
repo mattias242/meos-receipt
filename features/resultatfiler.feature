@@ -66,6 +66,20 @@ Egenskap: Resultatfiler från MeOS resultatautomat
     Så visar kvittot för bricka 333333 löparen "Frida Frisk"
     Och innehåller kvittot för bricka 333333 stämplingarna "31"
 
+  # Delarna testas var för sig ovan. Det här scenariot kör dem i den ordning de
+  # sker på tävlingsdagen – flera fel i projektet har uppstått först i
+  # kombinationen, inte i något enskilt steg.
+  Scenario: Ett helt tävlingsförlopp från startlista till fastställt resultat
+    Givet att resultatautomaten har laddat upp en resultatfil
+    Och att MeOS har skickat en diff där "Frida Frisk" med bricka 333333 anmäls i klassen "D21"
+    När MeOS skickar en komplett tävling med tävlings-id 1
+    Och resultatautomaten laddar upp en resultatfil
+    Så visar kvittot för bricka 123456 löparen "Anna Andersson"
+    Och innehåller kvittot för bricka 123456 stämplingarna "31, 32, 77, 45, 50, Mål"
+    Och kvittot för bricka 222222 visar status "Utgått"
+    Och kvittot för bricka 444444 visar status "Ej start"
+    Och finns exakt 1 tävling i tävlingslistan
+
   Scenario: Radiotider visas som tidigare när ingen resultatfil finns
     När jag hämtar kvittot för bricka 123456
     Så innehåller kvittot sträckorna "Radio 1, Förvarning, Mål"
