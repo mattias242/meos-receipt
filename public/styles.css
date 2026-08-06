@@ -215,6 +215,17 @@ main .lead {
 .receipt .badge.extra { background: #d8dcd8; color: #444; }
 .receipt .missRow td { color: #b03030; }
 .receipt .noPunches { text-align: center; color: var(--muted); }
+/* Underlaget står stilla – syns bara när resultatet ännu inte är fastställt. */
+.receipt .stale {
+  margin-top: 0.9rem;
+  padding: 0.5rem 0.6rem;
+  border: 1px dashed #9a6a10;
+  border-radius: 0.3rem;
+  color: #7d5400;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  text-align: center;
+}
 .receipt .updated { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 1rem; }
 
 .shareRow {

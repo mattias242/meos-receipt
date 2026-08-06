@@ -134,6 +134,37 @@ test('sökning strax under gränsen listas som vanligt', async (t) => {
   assert.equal((await res.json()).length, 100);
 });
 
+// KRAV-4: slutar MeOS skicka – nätet på tävlingsdatorn dör, eller
+// Onlineresultat stängs av misstag – fryser kvittona i det läge de var. En
+// löpare som gått i mål och ser "Ute på banan" i en timme tror att hennes
+// stämpling inte registrerats. Kvittot ska säga hur gammalt underlaget är.
+test('kvittot berättar hur gammal tävlingsdatan är', async (t) => {
+  const { server, base } = await startServer();
+  t.after(() => server.close());
+  await postMop(base, MOP_COMPLETE);
+
+  const r = await (await fetch(`${base}/api/receipt?card=111111`)).json();
+  assert.equal(typeof r.updatedAgeSeconds, 'number', 'åldern ska räknas av servern');
+  assert.ok(r.updatedAgeSeconds < 5, `nyss inläst data, fick ${r.updatedAgeSeconds} s`);
+  assert.equal(r.result.statusText, 'Ute på banan');
+});
+
+test('åldern räknas från senast mottagna data', async (t) => {
+  const { createStore } = await import('../lib/store.js');
+  const { applyMop } = await import('../lib/mop.js');
+  const { buildReceipt } = await import('../lib/receipt.js');
+
+  const store = createStore();
+  applyMop(store, 1, MOP_COMPLETE);
+  // Låtsas att det gått en halvtimme sedan MeOS senast hörde av sig
+  const enHalvtimmeSenare = Date.now() + 30 * 60 * 1000;
+  const r = buildReceipt(store.competitions[1], 1, 33, { now: () => enHalvtimmeSenare });
+  assert.ok(
+    r.updatedAgeSeconds >= 1800 && r.updatedAgeSeconds < 1810,
+    `förväntade ~1800 s, fick ${r.updatedAgeSeconds}`
+  );
+});
+
 test('MOPDiff updates a competitor and marks result preliminary', async (t) => {
   const { server, base } = await startServer();
   t.after(() => server.close());

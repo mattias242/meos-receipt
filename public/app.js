@@ -52,6 +52,24 @@ async function loadCompetitions() {
   }
 }
 
+/** Minuter utan ny data innan ett oavgjort kvitto flaggas som inaktuellt. */
+const INAKTUELL_EFTER_MINUTER = 10;
+
+/**
+ * Slutar MeOS skicka fryser kvittot. En löpare som gått i mål och ser "Ute på
+ * banan" tror då att stämplingen inte registrerats, fast felet ligger hos
+ * tävlingsdatorn. Notisen visas bara när resultatet ännu inte är fastställt –
+ * efter tävlingen slutar MeOS skicka helt normalt, och då vore den bara brus.
+ */
+function inaktuellNotis(r) {
+  const alder = r.updatedAgeSeconds;
+  const fastställt = r.result.status > 0 && !r.result.preliminary;
+  if (fastställt || typeof alder !== 'number' || alder < INAKTUELL_EFTER_MINUTER * 60) return '';
+  const minuter = Math.floor(alder / 60);
+  return `<div class="stale">Tjänsten har inte fått ny data från tävlingen på ${minuter} minuter.
+    Ditt resultat kan redan vara registrerat – fråga tävlingsledningen om det dröjer.</div>`;
+}
+
 function statusClass(r) {
   if (r.result.status === 1) return 'ok';
   if (r.result.status === 0 || r.result.preliminary) return 'pending';
@@ -115,6 +133,7 @@ function renderReceipt(r) {
           ? '<hr /><div class="noPunches">Inga stämplingar registrerade</div>'
           : ''
     }
+    ${inaktuellNotis(r)}
     <div class="updated">Uppdaterat ${r.updated ? new Date(r.updated).toLocaleTimeString('sv-SE') : '–'}</div>
     <div class="shareRow">
       <button type="button" id="shareBtn">Dela kvittot</button>
