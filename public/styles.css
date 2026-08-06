@@ -148,6 +148,18 @@ main {
 .receipt .prel { text-align: center; color: #b07a20; font-size: 0.8rem; margin-top: 0.2rem; }
 
 .receipt .splitsHead th { border-bottom: 1px solid var(--line); padding-bottom: 0.3rem; }
+.receipt .badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.05rem 0.35rem;
+  border-radius: 0.6rem;
+  vertical-align: middle;
+}
+.receipt .badge.miss { background: #b03030; color: #fff; }
+.receipt .badge.extra { background: #d8dcd8; color: #444; }
+.receipt .missRow td { color: #b03030; }
 .receipt .updated { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 1rem; }
 
 .shareRow { text-align: center; margin-top: 1.4rem; }

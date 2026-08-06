@@ -65,9 +65,37 @@ I MeOS: **Tävling → Onlineresultat** (automatisk publicering):
 | Format | MeOS onlineprotokoll (MOP) |
 
 Skicka gärna med radiokontroller/mellantider i MeOS så visas de som
-sträcktider på kvittot. Observera att MOP-protokollet endast innehåller
-radiotider – kompletta stämplingar för varje kontroll på banan skickas inte,
-så kvittot visar mellantiderna vid radiokontroller plus måltiden.
+sträcktider på kvittot. MOP-protokollet innehåller dock endast radiotider –
+för kompletta kvitton, se nästa avsnitt.
+
+## Kompletta stämplingar via resultatautomaten (IOF XML)
+
+För att kvittot ska visa **alla** stämplingar – i banordning, inklusive
+felstämplade/saknade kontroller och extra stämplingar – kompletteras
+onlinedatat med resultatfiler från MeOS resultatautomat:
+
+1. I MeOS: skapa en **resultatautomat** (Automater) som med lämpligt
+   intervall exporterar resultat till fil i formatet **IOF XML 3.0
+   (ResultList)** med sträcktider.
+2. Kör uppladdningsskriptet på MeOS-datorn så laddas filen upp till
+   `POST /iof` varje gång den ändras:
+
+   ```powershell
+   # Windows
+   .\tools\LaddaUppResultat.ps1 -Fil C:\meos\resultat.xml `
+     -Url https://din-server.example -Tavling 1 -Losenord hemligt
+   ```
+
+   ```bash
+   # macOS/Linux
+   ./tools/ladda-upp-resultat.sh /sökväg/resultat.xml https://din-server.example 1 hemligt
+   ```
+
+Löpare matchas mot onlinedatat via bricknummer; MOP-datat behåller företräde
+för namn, status och tider medan resultatfilen bidrar med stämplingslistan
+(inkl. `Missing`/`Additional`) och fyller i det som saknas. Löpare som bara
+finns i resultatfilen skapas automatiskt, så tjänsten fungerar även helt utan
+onlineanslutning från MeOS – ladda bara upp resultatfiler.
 
 ## Miljövariabler
 
@@ -82,6 +110,7 @@ så kvittot visar mellantiderna vid radiokontroller plus måltiden.
 | Endpoint | Beskrivning |
 | --- | --- |
 | `POST /meos` (även `/update`, `/update.php`) | Tar emot MOP-XML från MeOS. Svarar `OK`, `BADCMP`, `BADPWD`, `NOZIP` eller `ERROR` som text. |
+| `POST /iof` | Tar emot IOF XML 3.0 ResultList (med sträcktider) från resultatautomaten. Samma headers och svar som `/meos`. |
 | `GET /api/competitions` | Lista över inlästa tävlingar. |
 | `GET /api/search?q=<bricka eller namn>[&cmp=N]` | Sök löpare. |
 | `GET /api/receipt?card=<bricka>[&cmp=N]` | Kvitto via bricknummer. |

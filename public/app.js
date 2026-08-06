@@ -57,14 +57,20 @@ function statusClass(r) {
 function renderReceipt(r) {
   const res = r.result;
   const rows = r.splits
-    .map(
-      (s) => `<tr>
-        <td>${esc(s.name)}</td>
-        <td class="num">${esc(s.leg)}</td>
-        <td class="num">${esc(s.elapsed)}</td>
-        <td class="num">${esc(s.clock)}</td>
-      </tr>`
-    )
+    .map((s) => {
+      const badge =
+        s.status === 'missing'
+          ? ' <span class="badge miss">saknas</span>'
+          : s.status === 'additional'
+            ? ' <span class="badge extra">extra</span>'
+            : '';
+      return `<tr${s.status === 'missing' ? ' class="missRow"' : ''}>
+        <td>${esc(s.name)}${badge}</td>
+        <td class="num">${esc(s.leg) || '–'}</td>
+        <td class="num">${esc(s.elapsed) || '–'}</td>
+        <td class="num">${esc(s.clock) || '–'}</td>
+      </tr>`;
+    })
     .join('');
 
   const place = res.place

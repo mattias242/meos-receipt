@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createStore } from './lib/store.js';
 import { applyMop } from './lib/mop.js';
+import { applyIof } from './lib/iof.js';
 import { buildReceipt, searchCompetitors } from './lib/receipt.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -18,35 +19,43 @@ export function createApp({ dataDir = null, password = '', saveDelayMs = 2000 } 
   const app = express();
   app.disable('x-powered-by');
 
-  // --- MeOS push endpoint (MOP) -------------------------------------------
-  const mopHandler = [
-    express.raw({ type: () => true, limit: '32mb' }),
-    (req, res) => {
-      res.type('text/plain');
+  // --- XML push endpoints (MeOS online + resultatautomat) ------------------
+  // Same header protocol for both: competition (id) and pwd (password).
+  function receiveXml(apply) {
+    return [
+      express.raw({ type: () => true, limit: '32mb' }),
+      (req, res) => {
+        res.type('text/plain');
 
-      const cmpId = parseInt(req.get('competition') || '', 10);
-      if (!(cmpId > 0)) return res.send('BADCMP');
+        const cmpId = parseInt(req.get('competition') || '', 10);
+        if (!(cmpId > 0)) return res.send('BADCMP');
 
-      if (password && req.get('pwd') !== password) return res.send('BADPWD');
+        if (password && req.get('pwd') !== password) return res.send('BADPWD');
 
-      const data = req.body;
-      if (!Buffer.isBuffer(data) || data.length === 0) return res.send('ERROR');
+        const data = req.body;
+        if (!Buffer.isBuffer(data) || data.length === 0) return res.send('ERROR');
 
-      // Zip (starts with 'PK') is not supported – MeOS falls back to plain XML.
-      if (data[0] === 0x50 && data[1] === 0x4b) return res.send('NOZIP');
+        // Zip (starts with 'PK') is not supported – MeOS falls back to plain XML.
+        if (data[0] === 0x50 && data[1] === 0x4b) return res.send('NOZIP');
 
-      try {
-        applyMop(store, cmpId, data.toString('utf8'));
-      } catch (err) {
-        console.error('MOP-fel:', err.message);
-        return res.send('ERROR');
-      }
-      return res.send('OK');
-    },
-  ];
+        try {
+          apply(cmpId, data.toString('utf8'));
+        } catch (err) {
+          console.error('Mottagningsfel:', err.message);
+          return res.send('ERROR');
+        }
+        return res.send('OK');
+      },
+    ];
+  }
+
+  const mopHandler = receiveXml((cid, xml) => applyMop(store, cid, xml));
   app.post('/meos', ...mopHandler);
   app.post('/update', ...mopHandler);
   app.post('/update.php', ...mopHandler);
+
+  // IOF XML 3.0 ResultList med sträcktider, från MeOS resultatautomat (KRAV-9)
+  app.post('/iof', ...receiveXml((cid, xml) => applyIof(store, cid, xml)));
 
   // --- JSON API ------------------------------------------------------------
   app.get('/api/competitions', (req, res) => {
