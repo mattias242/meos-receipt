@@ -197,9 +197,9 @@ main .lead {
 }
 .receipt .status.ok { color: #1a7a3c; }
 .receipt .status.bad { color: #b03030; }
-.receipt .status.pending { color: #b07a20; }
+.receipt .status.pending { color: #9a6a10; }
 .receipt .place { text-align: center; margin-top: 0.3rem; }
-.receipt .prel { text-align: center; color: #b07a20; font-size: 0.8rem; margin-top: 0.2rem; }
+.receipt .prel { text-align: center; color: #9a6a10; font-size: 0.8rem; margin-top: 0.2rem; }
 
 .receipt .splitsHead th { border-bottom: 1px solid var(--line); padding-bottom: 0.3rem; }
 .receipt .badge {
