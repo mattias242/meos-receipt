@@ -25,6 +25,53 @@ test('store persists to disk within saveDelayMs', async (t) => {
   assert.equal(reloaded.getCompetition(1).info.name, 'Test');
 });
 
+// KRAV-8: en oläsbar datafil får inte tyst skrivas över. Filen kan innehålla
+// hela tävlingens data – startar tjänsten tom och sparar över den är den borta
+// för gott, utan möjlighet att rädda innehållet.
+test('en oläsbar datafil sparas undan i stället för att skrivas över', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-trasig-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'competitions.json');
+
+  const original = '{"1":{"info":{"name":"Viktig tävling"},"competitors":{"31":{"name":"Anna"';
+  fs.writeFileSync(file, original);
+
+  const store = createStore({ dataDir: dir, saveDelayMs: 10 });
+  assert.deepEqual(store.listCompetitions(), [], 'trasig data ska inte läsas in');
+
+  const undanlagd = fs.readdirSync(dir).filter((f) => f.includes('trasig'));
+  assert.equal(undanlagd.length, 1, `förväntade en undanlagd fil, fick ${fs.readdirSync(dir)}`);
+  assert.equal(
+    fs.readFileSync(path.join(dir, undanlagd[0]), 'utf8'),
+    original,
+    'innehållet ska bevaras oförändrat'
+  );
+
+  // Ny data ska kunna sparas som vanligt efteråt
+  store.getCompetition(2).info.name = 'Ny tävling';
+  store.touch(2);
+  await waitFor(() => fs.existsSync(file) && JSON.parse(fs.readFileSync(file, 'utf8'))['2']);
+});
+
+test('en läsbar datafil lämnas orörd', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-ok-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, 'competitions.json');
+
+  const skapare = createStore({ dataDir: dir, saveDelayMs: 10 });
+  skapare.getCompetition(1).info.name = 'Test';
+  skapare.touch(1);
+  await waitFor(() => fs.existsSync(file));
+
+  const läsare = createStore({ dataDir: dir, saveDelayMs: 10 });
+  assert.equal(läsare.getCompetition(1).info.name, 'Test');
+  assert.deepEqual(
+    fs.readdirSync(dir).filter((f) => f.includes('trasig')),
+    [],
+    'inget ska läggas undan när filen går att läsa'
+  );
+});
+
 // --- KRAV-14: gallring av gammal tävlingsdata -------------------------------
 
 const DAY = 24 * 60 * 60 * 1000;
