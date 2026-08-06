@@ -50,23 +50,40 @@ if errorlevel 1 (
   exit /b 1
 )
 
+rem Andringsdetektorn nedan bygger pa filens tidsstampel, som i Windows bara
+rem har minutupplosning, plus filstorleken. Andras t.ex. en stracktid fran
+rem 1234 till 1235 inom samma minut ser filen oforandrad ut. Darfor laddas
+rem filen upp pa nytt var TVINGA_EFTER:e varv aven utan synlig andring -
+rem tjansten ar idempotent, sa en extra uppladdning kostar bara overforingen.
+if "%TVINGA_EFTER%"=="" set "TVINGA_EFTER=30"
+
 echo Bevakar %FIL%
 echo Laddar upp till %URL%/iof (tavling %CMP%) var %INTERVALL%:e sekund vid andring.
 echo Avbryt med Ctrl+C.
 set "SENAST="
+set /a CYKLER=0
 
 :loop
 if exist "%FIL%" (
   rem Tidsstampel + filstorlek som andringsdetektor
   for %%F in ("%FIL%") do set "TS=%%~tF_%%~zF"
-  if not "!TS!"=="!SENAST!" (
+  set "LADDA="
+  if not "!TS!"=="!SENAST!" set "LADDA=1"
+  if !CYKLER! GEQ %TVINGA_EFTER% set "LADDA=1"
+  if defined LADDA (
     set "SVAR=INGET SVAR"
     for /f "delims=" %%S in ('curl -s -X POST -H "competition: %CMP%" -H "pwd: %LOSEN%" -H "Content-Type: application/xml; charset=utf-8" --data-binary @"%FIL%" "%URL%/iof"') do set "SVAR=%%S"
     echo !TIME:~0,8! !SVAR!
-    if "!SVAR!"=="OK" set "SENAST=!TS!"
+    rem Forst nar tjansten svarat OK ar filen verkligen uppladdad. Ett BADPWD
+    rem eller ERROR ska ge nytt forsok, inte tystnad.
+    if "!SVAR!"=="OK" (
+      set "SENAST=!TS!"
+      set /a CYKLER=0
+    )
   )
 ) else (
   echo !TIME:~0,8! Vantar pa att %FIL% ska skapas...
 )
+set /a CYKLER+=1
 timeout /t %INTERVALL% /nobreak >nul
 goto loop
