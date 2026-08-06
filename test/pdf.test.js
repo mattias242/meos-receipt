@@ -172,6 +172,40 @@ test('kvitto utan starttid får ingen stämplingsnotering', () => {
   assert.ok(!text.includes('Inga stämplingar registrerade'), text);
 });
 
+// Remsan är 45 tecken bred. Ett enskilt ord som är längre än så – en lång
+// webbadress som arrangörsnamn, eller ett hopskrivet klubbnamn – går inte att
+// bryta på ordgräns och måste delas rakt av, annars sticker det utanför.
+test('ett ord längre än remsan delas i stället för att spilla över', () => {
+  const långt = 'A'.repeat(120);
+  const rader = receiptLines({
+    ...RECEIPT,
+    competition: { ...RECEIPT.competition, name: långt },
+  }).map((l) => l.text);
+
+  for (const rad of rader) {
+    assert.ok(rad.length <= 45, `rad på ${rad.length} tecken: ${rad.slice(0, 50)}`);
+  }
+  // Hela ordet ska finnas kvar, bara uppdelat
+  assert.equal(rader.join('').match(/A+/g)?.[0].length, 120, 'inga tecken får tappas bort');
+});
+
+test('långt ord mitt i en text bryts utan att resten försvinner', () => {
+  const rader = receiptLines({
+    ...RECEIPT,
+    // X är valt för att inget annat på kvittot innehåller det – "Bricka"
+    // hade annars räknats in i kontrollen nedan.
+    runner: { ...RECEIPT.runner, club: `OK ${'X'.repeat(60)} Skogen` },
+  }).map((l) => l.text);
+
+  // Bara klubbraderna – sträcktabellens "EXTRA"-märkning innehåller också X.
+  const klubbrader = rader.slice(rader.indexOf('OK'), rader.findIndex((r) => r.includes('Skogen')) + 1);
+  const text = klubbrader.join(' ');
+  assert.ok(text.includes('OK'), 'texten före det långa ordet finns kvar');
+  assert.ok(text.includes('Skogen'), 'och texten efter');
+  assert.equal(text.match(/X+/g).join('').length, 60, 'inga tecken får tappas bort');
+  for (const rad of rader) assert.ok(rad.length <= 45, `för bred rad: ${rad}`);
+});
+
 test('receiptFilename blir ett ASCII-säkert filnamn', () => {
   const name = receiptFilename(RECEIPT);
   assert.equal(name, 'Kvitto-Anna-Andersson-Testtavlingen.pdf');

@@ -133,6 +133,40 @@ test('rate limiter räknar per nyckel', () => {
   assert.equal(limiter.allow('5.6.7.8'), true, 'annan IP ska ha egen kvot');
 });
 
+// Takt-begränsaren håller en post per avsändar-IP. Utan städning växer den så
+// länge tjänsten kör – varje ny besökare lägger till en nyckel som aldrig
+// försvinner. Städningen är billig försäkring, men var otestad.
+test('rate limiter städar bort utgångna nycklar', () => {
+  let t = 1000;
+  const limiter = createRateLimiter({ max: 5, windowMs: 1000, now: () => t });
+
+  // 5001 besökare passerar; deras kvot hinner gå ut
+  for (let i = 0; i < 5001; i++) limiter.allow(`ip-${i}`);
+  t += 2000;
+
+  // Nästa besökare utlöser städningen
+  limiter.allow('ny-besökare');
+
+  // De gamla ska vara borta: en av dem får full kvot igen
+  const gammal = 'ip-0';
+  const släpptIgenom = [1, 2, 3, 4, 5].map(() => limiter.allow(gammal));
+  assert.deepEqual(
+    släpptIgenom,
+    [true, true, true, true, true],
+    'en utgången nyckel ska inte belasta minnet med gammal historik'
+  );
+});
+
+test('rate limiter behåller nycklar som fortfarande gäller', () => {
+  let t = 1000;
+  const limiter = createRateLimiter({ max: 2, windowMs: 60_000, now: () => t });
+  limiter.allow('aktiv');            // första utskicket
+  for (let i = 0; i < 5001; i++) limiter.allow(`ip-${i}`);
+
+  assert.equal(limiter.allow('aktiv'), true, 'andra utskicket ryms');
+  assert.equal(limiter.allow('aktiv'), false, 'men inte det tredje – kvoten minns');
+});
+
 test('rate limiter öppnar igen när fönstret passerat', () => {
   let t = 1000;
   const limiter = createRateLimiter({ max: 1, windowMs: 1000, now: () => t });
