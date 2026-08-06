@@ -168,6 +168,16 @@ When('jag hämtar kvittot för bricka {int}', async function (card) {
   await getJson(this, `/api/receipt?card=${card}`);
 });
 
+When('jag laddar ner kvittot som PDF för bricka {int}', async function (card) {
+  const res = await fetch(`${this.base}/api/receipt.pdf?card=${card}`);
+  this.pdf = {
+    status: res.status,
+    type: res.headers.get('content-type'),
+    disposition: res.headers.get('content-disposition') || '',
+    body: Buffer.from(await res.arrayBuffer()),
+  };
+});
+
 When('jag söker på {string}', async function (q) {
   await getJson(this, `/api/search?q=${encodeURIComponent(q)}`);
 });
@@ -192,6 +202,43 @@ When('tjänsten startas om utan tidsförskjutning', async function () {
 // ---------------------------------------------------------------------------
 // Så
 // ---------------------------------------------------------------------------
+
+/**
+ * Plockar ut den synliga texten ur en PDF byggd av lib/pdf.js: strömmarna är
+ * okomprimerade, så textliteralerna före `Tj` går att läsa direkt (latin1).
+ */
+function pdfText(buffer) {
+  const raw = buffer.toString('latin1');
+  const out = [];
+  for (const m of raw.matchAll(/\(((?:\\.|[^\\()])*)\)\s*Tj/g)) {
+    out.push(m[1].replace(/\\([\\()])/g, '$1'));
+  }
+  return out.join('\n');
+}
+
+Then('får jag en PDF-fil', function () {
+  assert.equal(this.pdf.status, 200);
+  assert.match(this.pdf.type, /application\/pdf/);
+  assert.equal(this.pdf.body.subarray(0, 5).toString(), '%PDF-');
+  assert.match(this.pdf.body.subarray(-8).toString(), /%%EOF/);
+  assert.match(this.pdf.disposition, /^attachment; filename=/);
+});
+
+Then('filnamnet innehåller {string}', function (part) {
+  assert.ok(
+    this.pdf.disposition.includes(part),
+    `${part} saknas i Content-Disposition: ${this.pdf.disposition}`
+  );
+});
+
+Then('PDF:en innehåller texten {string}', function (text) {
+  const content = pdfText(this.pdf.body);
+  assert.ok(content.includes(text), `"${text}" saknas i PDF-texten:\n${content}`);
+});
+
+Then('blir PDF-svaret {int}', function (code) {
+  assert.equal(this.pdf.status, code);
+});
 
 Then('blir svaret {string}', function (expected) {
   assert.equal(this.reply, expected);

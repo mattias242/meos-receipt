@@ -5,6 +5,7 @@ import { createStore } from './lib/store.js';
 import { applyMop } from './lib/mop.js';
 import { applyIof } from './lib/iof.js';
 import { buildReceipt, searchCompetitors } from './lib/receipt.js';
+import { renderReceiptPdf, receiptFilename } from './lib/pdf.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -107,9 +108,14 @@ export function createApp({
     return null;
   }
 
-  app.get('/api/receipt', (req, res) => {
+  /**
+   * Löser upp ?card=/?id=/?cmp= till ett kvitto. Returnerar antingen
+   * { receipt } eller { status, body } som svar rakt av – delas av
+   * JSON-kvittot och PDF-nedladdningen (KRAV-15).
+   */
+  function resolveReceipt(req) {
     if (store.listCompetitions().length === 0) {
-      return res.status(404).json({ error: 'Ingen tävling inläst ännu.' });
+      return { status: 404, body: { error: 'Ingen tävling inläst ännu.' } };
     }
 
     let cmpId, competitorId;
@@ -119,26 +125,48 @@ export function createApp({
       competitorId = explicitId;
     } else {
       const card = parseInt(req.query.card || '', 10);
-      if (!(card > 0)) return res.status(400).json({ error: 'Ange bricknummer (card) eller löpar-id (id).' });
+      if (!(card > 0)) {
+        return { status: 400, body: { error: 'Ange bricknummer (card) eller löpar-id (id).' } };
+      }
 
       const explicit = parseInt(req.query.cmp || '', 10);
       const found = findByCard(card, explicit > 0 && store.competitions[explicit] ? explicit : null);
       if (!found) {
-        return res.status(404).json({ error: `Ingen löpare med bricka ${card} hittades.` });
+        return { status: 404, body: { error: `Ingen löpare med bricka ${card} hittades.` } };
       }
       if (found.matches.length > 1) {
         // Delad bricka: låt användaren välja (KRAV-7).
-        return res.status(300).json({
-          alternatives: searchCompetitors(store.competitions[found.cmpId], found.cmpId, String(card)),
-        });
+        return {
+          status: 300,
+          body: {
+            alternatives: searchCompetitors(store.competitions[found.cmpId], found.cmpId, String(card)),
+          },
+        };
       }
       cmpId = found.cmpId;
       competitorId = found.matches[0];
     }
 
     const receipt = buildReceipt(store.competitions[cmpId], cmpId, competitorId);
-    if (!receipt) return res.status(404).json({ error: 'Löparen hittades inte.' });
+    if (!receipt) return { status: 404, body: { error: 'Löparen hittades inte.' } };
+    return { receipt };
+  }
+
+  app.get('/api/receipt', (req, res) => {
+    const { receipt, status, body } = resolveReceipt(req);
+    if (!receipt) return res.status(status).json(body);
     res.json(receipt);
+  });
+
+  // Kvittot som nedladdningsbar PDF (KRAV-15).
+  app.get('/api/receipt.pdf', (req, res) => {
+    const { receipt, status, body } = resolveReceipt(req);
+    if (!receipt) return res.status(status).json(body);
+
+    const pdf = renderReceiptPdf(receipt);
+    res.type('application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${receiptFilename(receipt)}"`);
+    res.send(pdf);
   });
 
   app.get('/api/health', (req, res) => {

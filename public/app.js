@@ -110,7 +110,10 @@ function renderReceipt(r) {
         : ''
     }
     <div class="updated">Uppdaterat ${r.updated ? new Date(r.updated).toLocaleTimeString('sv-SE') : '–'}</div>
-    <div class="shareRow"><button type="button" id="shareBtn">Dela kvittot</button></div>
+    <div class="shareRow">
+      <button type="button" id="shareBtn">Dela kvittot</button>
+      <a class="btn" id="pdfBtn" href="api/receipt.pdf?cmp=${r.competition.id}&id=${r.runner.id}">Ladda ner PDF</a>
+    </div>
   `;
   receiptEl.hidden = false;
 
