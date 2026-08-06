@@ -156,6 +156,14 @@ E-post kräver `MAILGUN_SMTP`/`MAILGUN_USER`/`MAILGUN_PWD`. Mailgun EU kräver
 `smtp.eu.mailgun.org` och att användarnamnet är en hel adress; saknas
 konfigurationen är funktionen bara avstängd (`503`), inte trasig.
 
+Två verktyg som inte ingår i `npm run verify` men som fångar sådant testerna
+inte kan: `tools/verifiera-drift.sh <url> [bricka]` kontrollerar en driftsatt
+tjänst (svarar den, når data disken, fungerar kvitto och PDF), och
+`tools/korsvalidera.mjs <resultatfil> <url>` jämför samtliga kvitton mot en
+riktig resultatfil. Det senare har hittat flera av projektets allvarligaste
+fel; skarpa filer innehåller personuppgifter och tas därför som argument i
+stället för att checkas in.
+
 CI (`.github/workflows/ci.yml`) kör `npm test` + `npm run bdd` på varje push
 till `main` och går att starta manuellt via `workflow_dispatch` – det behövs
 när en driftstörning hos GitHub gör att push-eventet tappas bort.

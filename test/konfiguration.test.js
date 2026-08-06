@@ -98,6 +98,33 @@ test('tidszonen är satt i alla driftmiljöer', () => {
   assert.match(läs('fly.toml'), /^\s*TZ\s*=/m, 'fly.toml saknar TZ');
 });
 
+/**
+ * Dokumentationen har hunnit halka efter koden två gånger under projektets
+ * gång, senast med två nya kvittofält och ett driftverktyg som inte nämndes
+ * någonstans. Den som deployar eller felsöker utgår från README, så det som
+ * finns i svaren ska gå att slå upp där.
+ */
+test('kvittots fält är dokumenterade i README', () => {
+  const readme = läs('README.md');
+  // Fält i /api/receipt som en läsare kan behöva förstå
+  const fält = ['updatedAgeSeconds', 'teamTime', 'splits', 'statusText'];
+  for (const f of fält) {
+    assert.ok(readme.includes(f), `${f} finns i API-svaret men inte i README`);
+  }
+});
+
+test('verktygen i tools/ är dokumenterade', () => {
+  const readme = läs('README.md');
+  const verktyg = fs
+    .readdirSync(path.join(ROT, 'tools'))
+    .filter((f) => /\.(sh|mjs|bat)$/.test(f))
+    // .cfg.exempel och PowerShell-varianten nämns i sitt eget sammanhang
+    .filter((f) => !f.startsWith('LaddaUpp'));
+  for (const v of verktyg) {
+    assert.ok(readme.includes(v), `tools/${v} är inte dokumenterat i README`);
+  }
+});
+
 test('inga hemligheter ligger i incheckade konfigurationsfiler', () => {
   for (const fil of ['docker-compose.yml', 'fly.toml', '.env.example']) {
     const innehåll = läs(fil);

@@ -143,6 +143,15 @@ Checklista tävlingsdagen:
 Flera fel visar sig som tystnad snarare än felmeddelanden, så kontrollera
 att data faktiskt kommer fram – inte bara att programmen är igång:
 
+Snabbast går det med det medföljande skriptet, som kontrollerar allt på en
+gång och avslutar med felkod om något är fel:
+
+```bash
+./tools/verifiera-drift.sh https://din-server.example 123456
+```
+
+Det kan också köras manuellt:
+
 ```bash
 # Tjänsten svarar, och e-post är på om ni tänkt använda det
 curl https://din-server.example/api/health
@@ -214,7 +223,8 @@ storleksordningen 20 000 löpare med sidan öppen samtidigt. Datamängden når
 jämvikt vid gallringsgränsen och växer inte vidare.
 
 **Reserv utan internet:** tjänsten kan även byggas som fristående
-Windows-exe (`npm run build:exe:win`, paket i `dist/paket/`) och köras
+Windows-exe (`npm run build:exe:win`, som kör `tools/bygg-exe.mjs` och lägger
+paketet i `dist/paket/`) och köras
 direkt på tävlingsdatorn – men det förutsätter ett lokalt nätverk som
 löparnas mobiler kan ansluta till, vilket normalt inte finns på arenan.
 Se KRAV-12 (utgått) i `docs/KRAV.md`.
@@ -247,6 +257,7 @@ e-postutskicket avstängt: mejlformuläret döljs och endpointen svarar `503`.
 | `GET /api/competitions` | Lista över inlästa tävlingar. |
 | `GET /api/search?q=<bricka eller namn>[&cmp=N]` | Sök löpare. Fler än 100 träffar avvisas med `400` och en uppmaning att skriva mer av namnet (KRAV-5). |
 | `GET /api/receipt?card=<bricka>[&cmp=N]` | Kvitto via bricknummer. Delad bricka ger `300` med en träfflista (KRAV-7). |
+| | Svaret innehåller `runner`, `result` och `splits`. I `result` finns bl.a. `statusText` (status på svenska), `teamTime` (lagets tid för stafettlöpare) och på toppnivå `updatedAgeSeconds` – hur gammalt underlaget är, som kvittosidan använder för att varna när MeOS slutat skicka. |
 | `GET /api/receipt?id=<löpar-id>&cmp=N` | Kvitto via MeOS löpar-id (delningslänk). |
 | `GET /api/receipt.pdf?...` | Samma parametrar som `/api/receipt`, men kvittot som PDF-remsa 100 mm bred (KRAV-15). |
 | `POST /api/receipt/email` | Mejlar kvittot som PDF-bilaga. JSON-body med `email` plus `card` eller `id`/`cmp` (KRAV-16). |
