@@ -138,7 +138,7 @@ function renderReceipt(r) {
     <div class="updated">Uppdaterat ${r.updated ? new Date(r.updated).toLocaleTimeString('sv-SE') : '–'}</div>
     <div class="shareRow">
       <button type="button" id="shareBtn">Dela kvittot</button>
-      <a class="btn" id="pdfBtn" href="api/receipt.pdf?cmp=${r.competition.id}&id=${r.runner.id}">Ladda ner PDF</a>
+      <a class="btn" id="pdfBtn" href="api/receipt.pdf?cmp=${encodeURIComponent(r.competition.id)}&id=${encodeURIComponent(r.runner.id)}">Ladda ner PDF</a>
     </div>
     <form class="mailRow" id="mailForm" hidden>
       <label for="mailTo">Få kvittot mejlat som PDF</label>

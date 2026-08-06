@@ -126,3 +126,122 @@ test('ett borttaget kvitto slutar efterfrågas', async () => {
   await sida.tick(120000);
   assert.equal(varv, 2, `sidan fortsatte fråga efter ett kvitto som är borta (${varv} varv)`);
 });
+
+/**
+ * Kvittosidan escapar fritext för hand vid varje interpolation. En missad
+ * esc() är en XSS på den sida varenda löpare öppnar, och det går inte att
+ * bevisa genom att läsa källan – bara genom att mata in något fientligt och
+ * se vad som kommer ut.
+ *
+ * Namn, klubb, klass och lagnamn kommer från MeOS, tävlingsnamnet från den
+ * uppladdade filen. Endpointen är lösenordsskyddad (KRAV-13), men en löpare
+ * skriver ofta sitt namn själv i anmälningssystemet.
+ */
+const ELAKT = '<img src=x onerror="window.HACKAD=1">';
+
+test('inget fält på kvittot kan smuggla in markup', async () => {
+  const elakt = {
+    competition: { id: 1, name: ELAKT, date: ELAKT, organizer: ELAKT },
+    runner: { id: 31, name: ELAKT, club: ELAKT, class: ELAKT, card: ELAKT, bib: ELAKT, team: ELAKT },
+    result: {
+      status: 1, statusText: ELAKT, preliminary: false, startTime: ELAKT,
+      finishTime: ELAKT, time: ELAKT, place: null, prelPlace: null,
+      finished: 3, total: 3, after: ELAKT, teamTime: ELAKT,
+    },
+    splits: [{ control: ELAKT, name: ELAKT, status: 'ok', clock: ELAKT, elapsed: ELAKT, leg: ELAKT }],
+    updated: '2026-08-06T14:42:36.625Z',
+    updatedAgeSeconds: 3,
+  };
+
+  const sida = laddaSidan({
+    search: '?cmp=1&id=31',
+    svar: (url) => {
+      if (url.includes('/health')) return { status: 200, body: { email: true } };
+      if (url.includes('/competitions')) return { status: 200, body: [] };
+      return { status: 200, body: elakt };
+    },
+  });
+  await sida.tick(100);
+
+  const html = sida.el('receipt').innerHTML;
+  assert.ok(html.includes('&lt;img'), 'kvittot renderades inte alls');
+  assert.equal(
+    html.includes('<img'),
+    false,
+    `ett fält slapp igenom oescapat:\n${html.split('\n').filter((r) => r.includes('<img')).join('\n')}`
+  );
+  // "onerror" förekommer legitimt i den escapade texten (onerror=&quot;...).
+  // Det som skiljer en verklig händelsehanterare från escapad text är att den
+  // följs av ett riktigt citattecken.
+  assert.equal(
+    /on\w+\s*=\s*["']/.test(html),
+    false,
+    `en händelsehanterare nådde sidan:\n${html}`
+  );
+});
+
+test('träfflistan escapar också', async () => {
+  const sida = laddaSidan({
+    search: '?card=123456',
+    svar: (url) => {
+      if (url.includes('/health')) return { status: 200, body: { email: false } };
+      if (url.includes('/competitions')) return { status: 200, body: [] };
+      return {
+        status: 300,
+        body: {
+          alternatives: [
+            { id: 1, cmp: 1, name: ELAKT, club: ELAKT, class: ELAKT, card: ELAKT, statusText: ELAKT },
+            { id: 2, cmp: 1, name: 'Erik Ek', club: 'OK Test', class: 'H21', card: 123456, statusText: 'Godkänd' },
+          ],
+        },
+      };
+    },
+  });
+  await sida.tick(100);
+
+  const html = sida.el('hits').innerHTML;
+  assert.ok(html.includes('Erik Ek'), 'träfflistan renderades inte alls');
+  assert.equal(html.includes('<img'), false, `träfflistan escapar inte:\n${html}`);
+});
+
+/**
+ * Två interpolationer på kvittot saknar esc(): CSS-klassen från statusClass()
+ * och id:na i PDF-länkens href. Båda är i attributkontext, där en missad
+ * escapning bryter ut ur attributet i stället för att bli synlig text.
+ * statusClass() härleds ur statuskoden och kan inte återge indata – id:na
+ * kommer däremot rakt från API-svaret.
+ */
+test('id:n i PDF-länken kan inte bryta ut ur attributet', async () => {
+  const elakId = '1" onmouseover="window.HACKAD=1';
+  const sida = laddaSidan({
+    search: '?cmp=1&id=31',
+    svar: (url) => {
+      if (url.includes('/health')) return { status: 200, body: { email: false } };
+      if (url.includes('/competitions')) return { status: 200, body: [] };
+      return {
+        status: 200,
+        body: {
+          competition: { id: elakId, name: 'T', date: '2026-08-06', organizer: '' },
+          runner: { id: elakId, name: 'Anna', club: 'OK', class: 'H21', card: 1, bib: '', team: '' },
+          result: {
+            status: 1, statusText: 'Godkänd', preliminary: false, startTime: '10:00:00',
+            finishTime: '10:35:00', time: '35:00', place: null, prelPlace: null,
+            finished: 3, total: 3, after: '', teamTime: '',
+          },
+          splits: [],
+          updated: '2026-08-06T14:42:36.625Z',
+          updatedAgeSeconds: 3,
+        },
+      };
+    },
+  });
+  await sida.tick(100);
+
+  const html = sida.el('receipt').innerHTML;
+  assert.ok(html.includes('receipt.pdf'), 'PDF-länken renderades inte alls');
+  assert.equal(
+    /on\w+\s*=\s*["']/.test(html),
+    false,
+    `id:t bröt ut ur href-attributet:\n${html}`
+  );
+});
