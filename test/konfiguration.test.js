@@ -19,6 +19,7 @@ const läs = (p) => fs.readFileSync(path.join(ROT, p), 'utf8');
 /** Variabler som koden läser, med var de hör hemma. */
 const VARIABLER = {
   MEOS_PASSWORD: { compose: true, env: true },
+  ALLOW_NO_PASSWORD: { compose: false, env: false }, // bara för nätet utan internet
   DATA_DIR: { compose: true, env: true },
   PORT: { compose: false, env: true }, // containern exponerar porten i stället
   RETENTION_DAYS: { compose: true, env: true },

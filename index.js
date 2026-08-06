@@ -9,6 +9,20 @@ const password = process.env.MEOS_PASSWORD || '';
 // KRAV-14: gallring av tävlingsdata. 0 stänger av den.
 const retentionDays = parseInt(process.env.RETENTION_DAYS ?? '90', 10);
 
+// KRAV-13: tjänsten ligger på internet. Utan lösenord kontrolleras ingen
+// pwd-header, och en enda MOPComplete från vem som helst ersätter hela
+// tävlingen mitt under loppet. Att bara varna hamnade i en logg ingen läser –
+// att vägra starta märks vid deploy, medan den fungerande versionen står kvar.
+// Reservspåret utan internet (KRAV-12) kör medvetet öppet med ALLOW_NO_PASSWORD.
+if (!password && process.env.ALLOW_NO_PASSWORD !== '1') {
+  console.error(
+    'MEOS_PASSWORD är inte satt. Utan lösenord kan vem som helst skicka in ' +
+      'tävlingsdata till /meos och /iof och skriva över tävlingen.\n' +
+      'Sätt MEOS_PASSWORD (samma värde som i MeOS Onlineresultat), eller kör ' +
+      'ALLOW_NO_PASSWORD=1 om tjänsten står i ett eget nätverk utan internet.'
+  );
+  process.exit(1);
+}
 if (!password) {
   console.warn('VARNING: MEOS_PASSWORD är inte satt – alla kan skicka data till /meos.');
 }

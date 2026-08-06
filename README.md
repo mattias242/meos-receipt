@@ -233,7 +233,8 @@ Se KRAV-12 (utgått) i `docs/KRAV.md`.
 
 | Variabel | Default | Beskrivning |
 | --- | --- | --- |
-| `MEOS_PASSWORD` | — | Lösenord som MeOS måste skicka i `pwd`-headern. Tomt = ingen kontroll (avrådes). |
+| `MEOS_PASSWORD` | — | Lösenord som MeOS måste skicka i `pwd`-headern. **Krävs** – tjänsten vägrar starta utan. |
+| `ALLOW_NO_PASSWORD` | — | `1` startar tjänsten utan lösenord, med öppna skrivändpunkter. Bara för ett eget nätverk utan internet (KRAV-12). |
 | `DATA_DIR` | `./data` | Katalog för persisterad tävlingsdata (JSON). |
 | `PORT` | `3000` | Port för webbservern. |
 | `PUBLIC_DIR` | `public/` bredvid koden/exen | Katalog med kvittosidans statiska filer. |
