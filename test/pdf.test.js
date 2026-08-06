@@ -95,7 +95,19 @@ test('xref-tabellen pekar på objektens verkliga byte-offset', () => {
   });
 });
 
-test('långa banor delas på flera sidor', () => {
+/** MediaBox som [bredd, höjd] i punkter. */
+function mediaBox(pdf) {
+  const m = pdf.toString('latin1').match(/\/MediaBox \[0 0 ([\d.]+) ([\d.]+)\]/);
+  return { w: Number(m[1]), h: Number(m[2]) };
+}
+
+const MM = 72 / 25.4;
+
+test('kvittot är 100 mm brett', () => {
+  assert.ok(Math.abs(mediaBox(renderReceiptPdf(RECEIPT)).w - 100 * MM) < 0.5);
+});
+
+test('en lång bana blir en obruten remsa som växer på höjden', () => {
   const many = {
     ...RECEIPT,
     splits: Array.from({ length: 120 }, (_, i) => ({
@@ -107,10 +119,25 @@ test('långa banor delas på flera sidor', () => {
       leg: '1:00',
     })),
   };
-  const raw = renderReceiptPdf(many).toString('latin1');
-  const count = Number(raw.match(/\/Count (\d+)/)[1]);
-  assert.ok(count > 1, `förväntade flera sidor, fick ${count}`);
-  assert.equal((raw.match(/\/Type \/Page[^s]/g) || []).length, count);
+  const pdf = renderReceiptPdf(many);
+  const raw = pdf.toString('latin1');
+
+  assert.equal(Number(raw.match(/\/Count (\d+)/)[1]), 1, 'ska rymmas på en remsa');
+  const kort = mediaBox(renderReceiptPdf(RECEIPT));
+  const lang = mediaBox(pdf);
+  assert.equal(lang.w, kort.w, 'bredden är densamma');
+  assert.ok(lang.h > kort.h * 3, `remsan växte inte: ${kort.h} -> ${lang.h}`);
+});
+
+test('inga rader sticker utanför remsans bredd', () => {
+  const brett = {
+    ...RECEIPT,
+    competition: { ...RECEIPT.competition, name: 'Riksmästerskapen i orientering, långdistans 2026' },
+    runner: { ...RECEIPT.runner, club: 'Ett synnerligen långnamnat orienteringssällskap' },
+  };
+  for (const line of receiptLines(brett)) {
+    assert.ok(line.text.length <= 45, `för bred rad (${line.text.length}): ${line.text}`);
+  }
 });
 
 test('tecken utanför latin1 ger en läsbar PDF i stället för trasiga bytes', () => {
