@@ -114,6 +114,33 @@ test('fokusmarkeringen syns mot alla bakgrunder sidan använder', () => {
   }
 });
 
+/**
+ * KRAV-17: kvittot öppnas i mobilen direkt efter målgång, ofta med kalla eller
+ * blöta händer. WCAG rekommenderar minst 44x44 px för det man ska träffa.
+ * Textlänkar i löpande text undantas.
+ */
+test('knappar och fält är tillräckligt stora att träffa', () => {
+  const regler = [
+    '.searchRow input',
+    '.searchRow button',
+    '#searchForm select',
+    '.shareRow button, .shareRow .btn',
+    '.mailInputs input',
+    '.mailInputs button',
+  ];
+  for (const selektor of regler) {
+    const block = CSS.match(
+      new RegExp(`${selektor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`)
+    );
+    assert.ok(block, `regeln ${selektor} saknas`);
+    const höjd = block[1].match(/min-height:\s*([\d.]+)px/);
+    assert.ok(
+      höjd && Number(höjd[1]) >= 44,
+      `${selektor} saknar min-height: 44px – blir svår att träffa i mobilen`
+    );
+  }
+});
+
 test('kvittot är vitt papper med svart text oavsett sidans färger', () => {
   assert.equal(deklaration('.receipt', '--paper'), '#fff');
   assert.equal(deklaration('.receipt', '--ink'), '#000');

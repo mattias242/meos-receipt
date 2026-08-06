@@ -82,6 +82,7 @@ main .lead {
 
 #searchForm select {
   width: 100%;
+  min-height: 44px;
   padding: 0.6rem;
   margin-bottom: 0.6rem;
   border: 1px solid var(--line);
@@ -94,6 +95,7 @@ main .lead {
 .searchRow input {
   flex: 1;
   min-width: 0;
+  min-height: 44px;
   padding: 0.7rem 0.8rem;
   font-size: 1.05rem;
   font-family: inherit;
@@ -101,6 +103,7 @@ main .lead {
   border-radius: 0.35rem;
 }
 .searchRow button {
+  min-height: 44px;
   padding: 0.7rem 1.4rem;
   font-size: 1.05rem;
   font-family: inherit;
@@ -259,6 +262,10 @@ main .lead {
   flex-wrap: wrap;
 }
 .shareRow button, .shareRow .btn {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: 1px solid #000;
   color: #000;
@@ -284,6 +291,7 @@ main .lead {
 .mailInputs input {
   flex: 1;
   min-width: 0;
+  min-height: 44px;
   padding: 0.5rem 0.7rem;
   font-size: 0.9rem;
   font-family: inherit;
@@ -293,6 +301,7 @@ main .lead {
   color: #000;
 }
 .mailInputs button {
+  min-height: 44px;
   border: 1px solid #000;
   background: #000;
   color: #fff;
