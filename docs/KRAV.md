@@ -21,6 +21,7 @@ grönt.
 | KRAV-8 | Inläst tävlingsdata överlever en omstart av tjänsten. | `features/persistens.feature` |
 | KRAV-9 | Tjänsten tar emot resultatfiler i IOF XML 3.0 (ResultList med sträcktider), exporterade av MeOS resultatautomat, via `POST /iof` med samma autentisering som MOP. Löpare matchas mot befintlig MOP-data via bricknummer; löpare som bara finns i resultatfilen skapas. | `features/resultatfiler.feature` |
 | KRAV-10 | När en resultatfil är inläst visar kvittot samtliga stämplingar i banordning — inklusive saknade kontroller (felstämpling) och extra stämplingar — med sträck-, total- och klocktid, samt starttid och måltid. Utan resultatfil visas radiotider som tidigare. | `features/resultatfiler.feature` |
+| KRAV-11 | Uppladdningen från MeOS-datorn ska kunna köras som ren Windows/DOS-applikation (cmd.exe/`.bat`) utan andra beroenden än det som ingår i Windows 10/11 (`curl.exe`). Programmet ska även kunna startas med dubbelklick via en konfigfil. | `tools/ladda-upp-resultat.bat` — *verifieras manuellt på Windows; kan inte automattestas i CI-miljön (Linux)* |
 
 ## Arbetssätt
 

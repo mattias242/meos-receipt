@@ -77,17 +77,23 @@ onlinedatat med resultatfiler från MeOS resultatautomat:
 1. I MeOS: skapa en **resultatautomat** (Automater) som med lämpligt
    intervall exporterar resultat till fil i formatet **IOF XML 3.0
    (ResultList)** med sträcktider.
-2. Kör uppladdningsskriptet på MeOS-datorn så laddas filen upp till
-   `POST /iof` varje gång den ändras:
+2. Kör uppladdningsprogrammet på MeOS-datorn så laddas filen upp till
+   `POST /iof` varje gång den ändras. **`tools/ladda-upp-resultat.bat`** är en
+   ren Windows/DOS-applikation (cmd.exe) utan beroenden utöver `curl.exe`,
+   som är inbyggt i Windows 10 (1803+) och Windows 11:
 
-   ```powershell
-   # Windows
-   .\tools\LaddaUppResultat.ps1 -Fil C:\meos\resultat.xml `
-     -Url https://din-server.example -Tavling 1 -Losenord hemligt
+   ```bat
+   ladda-upp-resultat.bat C:\meos\resultat.xml https://din-server.example 1 hemligt
    ```
 
+   Alternativt: kopiera `tools/ladda-upp-resultat.cfg.exempel` till
+   `ladda-upp-resultat.cfg` i samma mapp, fyll i värdena och **dubbelklicka**
+   på `.bat`-filen – inga argument behövs.
+
+   För den som föredrar PowerShell finns `tools/LaddaUppResultat.ps1`, och
+   för macOS/Linux `tools/ladda-upp-resultat.sh`:
+
    ```bash
-   # macOS/Linux
    ./tools/ladda-upp-resultat.sh /sökväg/resultat.xml https://din-server.example 1 hemligt
    ```
 
@@ -130,7 +136,10 @@ fly deploy
 
 ## Krav
 
-- Node.js 18.18 eller senare.
+- Server: Node.js 18.18 eller senare (Windows, macOS eller Linux – tjänsten
+  kan även köras direkt på MeOS-datorn med `npm start`).
+- Uppladdningsprogrammet på MeOS-datorn: endast Windows 10 (1803+) eller
+  Windows 11 med inbyggd `curl.exe` – inga installationer krävs.
 
 ## Licens
 

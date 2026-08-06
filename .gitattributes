@@ -1,0 +1,2 @@
+tools/*.bat text eol=crlf
+tools/*.cfg.exempel text eol=crlf
