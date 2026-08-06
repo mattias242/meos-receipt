@@ -10,6 +10,9 @@ import { isValidEmail, createRateLimiter } from './lib/mailer.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+/** Största träfflista som är meningsfull att visa en löpare (KRAV-5). */
+const MAX_SEARCH_HITS = 100;
+
 /**
  * Creates the Express app.
  *  - POST /meos (även /update.php, /update): tar emot MeOS onlineprotokoll (MOP)
@@ -94,6 +97,14 @@ export function createApp({
     for (const id of cmpIds) {
       hits.push(...searchCompetitors(store.competitions[id], id, q));
       if (hits.length && !(explicit > 0)) break; // latest competition with a match
+    }
+
+    // En träfflista på hela deltagarfältet hjälper ingen att hitta sig själv,
+    // och skickar dessutom alla deltagare i ett svar (KRAV-5).
+    if (hits.length > MAX_SEARCH_HITS) {
+      return res.status(400).json({
+        error: `Sökningen gav ${hits.length} träffar. Skriv mer av namnet.`,
+      });
     }
     res.json(hits);
   });

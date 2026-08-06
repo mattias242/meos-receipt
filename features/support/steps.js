@@ -9,6 +9,7 @@ import {
   MOP_DIFF_CARL,
   mopDiffExtraRunner,
   mopCompleteMinimal,
+  mopCompleteManyRunners,
 } from '../../test/fixtures/mop.js';
 import { IOF_RESULTLIST } from '../../test/fixtures/iof.js';
 import { createMailer } from '../../lib/mailer.js';
@@ -127,6 +128,10 @@ Given(
     assert.equal(await postMop(this, xml, { competition: String(cmp) }), 'OK');
   }
 );
+
+Given('att MeOS har skickat en tävling med {int} löpare', async function (n) {
+  assert.equal(await postMop(this, mopCompleteManyRunners(n), { competition: '3' }), 'OK');
+});
 
 Given('att MeOS har skickat en diff där {string} går i mål', async function (name) {
   assert.ok(MOP_DIFF_CARL.includes(name), `fixturen saknar ${name}`);
@@ -454,6 +459,15 @@ Then('kvittot gäller tävlingen {string}', function (name) {
 Then('blir svaret 404 med ett felmeddelande', function () {
   assert.equal(this.res.status, 404);
   assert.ok(this.res.body.error);
+});
+
+Then('blir svaret 400 med ett felmeddelande', function () {
+  assert.equal(this.res.status, 400, JSON.stringify(this.res.body));
+  assert.ok(this.res.body.error);
+});
+
+Then('felmeddelandet nämner antalet träffar', function () {
+  assert.match(this.res.body.error, /\d+/, `felmeddelandet saknar antal: ${this.res.body.error}`);
 });
 
 Then('blir svaret en träfflista med {int} löpare', function (n) {

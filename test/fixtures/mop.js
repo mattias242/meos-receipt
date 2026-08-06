@@ -55,6 +55,27 @@ export function mopDiffExtraRunner({ id = 40, card = 123456, cls = 2, name = 'Er
 </MOPDiff>`;
 }
 
+/**
+ * Komplett tävling med många likadant namngivna löpare, för att pröva
+ * beteendet vid breda sökningar (KRAV-5) och vid realistisk deltagarvolym.
+ */
+export function mopCompleteManyRunners(n = 150, { name = 'Storatävlingen' } = {}) {
+  const cmps = Array.from(
+    { length: n },
+    (_, i) =>
+      `  <cmp id="${i + 1}" card="${500000 + i}">` +
+      `<base org="5" cls="1" stat="1" st="${360000 + i * 100}" rt="${20000 + i}">` +
+      `Löpare ${i + 1} Efternamn</base></cmp>`
+  ).join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<MOPComplete xmlns="http://www.melin.nu/mop">
+  <competition date="2026-08-06" organizer="Stora OK">${name}</competition>
+  <cls id="1" ord="1">H21</cls>
+  <org id="5" nat="SWE">OK Skogen</org>
+${cmps}
+</MOPComplete>`;
+}
+
 /** Komplett tävling utan löpare (för flertävlingsscenarier). */
 export function mopCompleteMinimal({ name = 'Nyare tävlingen', date = '2026-09-01' } = {}) {
   return `<?xml version="1.0" encoding="UTF-8"?>

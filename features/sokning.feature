@@ -18,6 +18,13 @@ Egenskap: Sökning på namn och bricka
     När jag söker på "Zebror"
     Så får jag 0 träffar
 
+  # KRAV-5: en träfflista på hela deltagarfältet hjälper ingen
+  Scenario: För bred sökning ber om ett mer preciserat namn
+    Givet att MeOS har skickat en tävling med 150 löpare
+    När jag söker på "Löpare"
+    Så blir svaret 400 med ett felmeddelande
+    Och felmeddelandet nämner antalet träffar
+
   # KRAV-6
   Scenario: Bricka som bara finns i en äldre tävling hittas ändå
     Givet att MeOS har skickat en komplett tävling med tävlings-id 2, namnet "Nyare tävlingen" och datumet "2026-09-01" utan löpare

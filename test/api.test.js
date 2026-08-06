@@ -6,6 +6,7 @@ import {
   MOP_DIFF_CARL as MOP_DIFF,
   mopDiffExtraRunner,
   mopCompleteMinimal,
+  mopCompleteManyRunners,
 } from './fixtures/mop.js';
 
 async function startServer(opts = {}) {
@@ -101,6 +102,36 @@ test('starttid visas bara för den som faktiskt startat', async (t) => {
 
   const godkand = await (await fetch(`${base}/api/receipt?card=123456`)).json();
   assert.equal(godkand.result.startTime, '10:00:00');
+});
+
+// KRAV-5: en bred sökning matchade hela deltagarfältet och skickade det i ett
+// svar – vid 2000 löpare 240 kB, och en träfflista ingen kan hitta sig själv i.
+test('för bred sökning avvisas i stället för att lista alla', async (t) => {
+  const { server, base } = await startServer();
+  t.after(() => server.close());
+  await postMop(base, mopCompleteManyRunners(150));
+
+  const res = await fetch(`${base}/api/search?q=${encodeURIComponent('Löpare')}`);
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.match(body.error, /150/, 'felet ska säga hur många som matchade');
+
+  // En precisare sökning fungerar som vanligt
+  const ok = await fetch(`${base}/api/search?q=${encodeURIComponent('Löpare 42 ')}`);
+  assert.equal(ok.status, 200);
+  const hits = await ok.json();
+  assert.equal(hits.length, 1);
+  assert.equal(hits[0].name, 'Löpare 42 Efternamn');
+});
+
+test('sökning strax under gränsen listas som vanligt', async (t) => {
+  const { server, base } = await startServer();
+  t.after(() => server.close());
+  await postMop(base, mopCompleteManyRunners(100));
+
+  const res = await fetch(`${base}/api/search?q=${encodeURIComponent('Löpare')}`);
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).length, 100);
 });
 
 test('MOPDiff updates a competitor and marks result preliminary', async (t) => {
