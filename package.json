@@ -14,7 +14,7 @@
     "build:exe:win": "node tools/bygg-exe.mjs --windows"
   },
   "engines": {
-    "node": ">=18.18"
+    "node": ">=22"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
