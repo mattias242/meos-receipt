@@ -25,6 +25,10 @@ primary_region = "arn"
   min_machines_running = 0
 
 [[vm]]
-  memory = "256mb"
+  # All tävlingsdata hålls i minnet; filen på disk används bara vid start.
+  # Mätt med 90 dagars data (60 tävlingar, ~57 000 löpare): 82 MB i vila och
+  # 174 MB under last. 256 MB gav för liten marginal – slår det i taket
+  # OOM-dödas maskinen mitt under tävlingen.
+  memory = "512mb"
   cpu_kind = "shared"
   cpus = 1

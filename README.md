@@ -179,6 +179,24 @@ Tävlingsdata ligger kvar i 90 dagar och gallras sedan automatiskt
 skickas en ny komplett sändning – stämplingarna från resultatfilen finns
 kvar ändå.
 
+### Hur mycket tål tjänsten?
+
+Uppmätt med 90 dagars data (60 tävlingar, ~57 000 löpare – ett fullt
+gallringsfönster för en klubb med två större tävlingar och ett par
+träningstävlingar i veckan):
+
+| | |
+| --- | --- |
+| Kvitto, senaste tävlingen | 1,2 ms |
+| Kvitto, äldsta tävlingen (letar igenom allt) | 3,9 ms |
+| PDF | 4,2 ms |
+| 200 samtidiga hämtningar | 77 ms median, ~1 300 anrop/s |
+| Omstart med full databas | 0,5 s |
+
+Kvittosidan pollar var 15:e sekund, så genomströmningen räcker för
+storleksordningen 20 000 löpare med sidan öppen samtidigt. Datamängden når
+jämvikt vid gallringsgränsen och växer inte vidare.
+
 **Reserv utan internet:** tjänsten kan även byggas som fristående
 Windows-exe (`npm run build:exe:win`, paket i `dist/paket/`) och köras
 direkt på tävlingsdatorn – men det förutsätter ett lokalt nätverk som
@@ -294,6 +312,10 @@ räkna med någon sekunds fördröjning på första anropet efter en tyst period
   även köras direkt på MeOS-datorn med `npm start`). Containern och CI kör
   samma major; BDD-verktyget stödjer inte längre Node 20, som dessutom är
   end-of-life.
+- Minne: **512 MB** rekommenderas. All tävlingsdata hålls i minnet (filen på
+  disk läses bara vid start), så åtgången följer datamängden. Mätt med 90
+  dagars data – 60 tävlingar och ~57 000 löpare, alltså ett fullt
+  gallringsfönster: 82 MB i vila, 174 MB under hög last, 16 MB på disk.
 - Uppladdningsprogrammet på MeOS-datorn: endast Windows 10 (1803+) eller
   Windows 11 med inbyggd `curl.exe` – inga installationer krävs.
 
