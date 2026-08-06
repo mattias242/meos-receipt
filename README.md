@@ -103,46 +103,35 @@ för namn, status och tider medan resultatfilen bidrar med stämplingslistan
 finns i resultatfilen skapas automatiskt, så tjänsten fungerar även helt utan
 onlineanslutning från MeOS – ladda bara upp resultatfiler.
 
-## Köra allt lokalt på arenan (publikt wifi)
+## Drift på tävlingen (via internet)
 
-Finns det publikt wifi på arenan kan hela tjänsten köras direkt på
-MeOS-datorn – löparna når kvittosidan i mobilen via wifi:t, utan
-molnserver:
+Löparna når tjänsten via internet med mobildata – arenan behöver inget
+wifi eller lokalt nät. Tävlingsdatorn med MeOS behöver en
+internetuppkoppling (t.ex. mobil delning eller 4G-router) för att skicka
+data.
 
-1. **Bygg en fristående Windows-exe** (en gång, på valfri dator med Node):
+```
+MeOS-datorn ──(internet)──▶ tjänsten (moln) ◀──(mobildata)── Löparnas mobiler
+```
 
-   ```bash
-   npm install
-   npm run build:exe:win
-   ```
+Checklista tävlingsdagen:
 
-   Paketet i `dist/paket/` (`meos-kvitto.exe`, `public/`, `start.bat`,
-   `LASMIG.txt`) kopieras till tävlingsdatorn – **ingen Node-installation
-   behövs där**.
+1. Tjänsten driftsatt på internet (se *Deployment* nedan) med
+   `MEOS_PASSWORD` satt.
+2. I MeOS: Onlineresultat mot `https://din-server.example/meos`
+   (tävlings-id + lösenord).
+3. För kompletta stämplingar: resultatautomat som exporterar IOF XML 3.0
+   med sträcktider, och `ladda-upp-resultat.bat` mot
+   `https://din-server.example`.
+4. Sprid länken till löparna – skylt eller QR-kod vid målet:
+   `https://din-server.example`. En direktlänk till ett kvitto har formen
+   `https://din-server.example/?card=123456`.
 
-2. **Starta** med dubbelklick på `start.bat`. Tillåt programmet i
-   Windows-brandväggen när frågan kommer (vid publikt wifi: bocka även i
-   "publika nätverk"). Fönstret visar vilka adresser löparna kan använda,
-   t.ex. `http://192.168.1.42:3000`.
-
-3. **Peka MeOS mot tjänsten lokalt**: Onlineresultat mot
-   `http://localhost:3000/meos` och/eller `ladda-upp-resultat.bat` mot
-   `http://localhost:3000`.
-
-4. **Sprid adressen** till löparna – skriv den på en skylt vid målet
-   eller gör en QR-kod av den.
-
-Att tänka på:
-
-- **Klientisolering:** en del publika/gäst-wifi blockerar trafik mellan
-  anslutna enheter ("AP/client isolation"). Testa med en mobil innan
-  tävlingen – når den inte datorns adress, be nätverksansvarig stänga av
-  isoleringen eller använd egen router/accesspunkt.
-- **Fast adress:** be gärna om ett reserverat IP (DHCP-reservation) för
-  tävlingsdatorn så att adressen på skylten stämmer hela dagen.
-- **SmartScreen:** exe-filens signatur bryts när applikationen bakas in i
-  Node-binären (känd egenskap hos Node SEA), så Windows kan varna första
-  gången – välj "Kör ändå".
+**Reserv utan internet:** tjänsten kan även byggas som fristående
+Windows-exe (`npm run build:exe:win`, paket i `dist/paket/`) och köras
+direkt på tävlingsdatorn – men det förutsätter ett lokalt nätverk som
+löparnas mobiler kan ansluta till, vilket normalt inte finns på arenan.
+Se KRAV-12 (utgått) i `docs/KRAV.md`.
 
 ## Miljövariabler
 
