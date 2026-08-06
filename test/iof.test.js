@@ -320,6 +320,51 @@ test('samma löpare i nästa tävling ger ingen falsk varning', async (t) => {
   assert.deepEqual(varningar, [], 'en ny tävling med samma löpare är normalt');
 });
 
+// KRAV-9: pekar uppladdningsprogrammet på förra tävlingens fil matchar
+// brickorna – det är samma löpare – och stämplingarna skrivs över med fel
+// lopps tider, utan att något säger ifrån. Datumet i filen avslöjar det.
+test('resultatfil från en annan tävlingsdag varnar', async (t) => {
+  const store = createStore();
+  applyMop(store, 1, MOP_COMPLETE);
+
+  const varningar = [];
+  const original = console.warn;
+  console.warn = (...a) => varningar.push(a.join(' '));
+  t.after(() => { console.warn = original; });
+
+  applyIof(store, 1, IOF_RESULTLIST.replace('<Date>2026-08-06</Date>', '<Date>2026-07-30</Date>'));
+
+  assert.equal(varningar.length, 1, `förväntade en varning, fick ${varningar.length}`);
+  assert.match(varningar[0], /2026-07-30/, 'varningen ska nämna filens datum');
+  assert.match(varningar[0], /2026-08-06/, 'och tävlingens');
+});
+
+test('resultatfil med samma datum varnar inte', async (t) => {
+  const store = createStore();
+  applyMop(store, 1, MOP_COMPLETE);
+
+  const varningar = [];
+  const original = console.warn;
+  console.warn = (...a) => varningar.push(a.join(' '));
+  t.after(() => { console.warn = original; });
+
+  applyIof(store, 1, IOF_RESULTLIST);
+  assert.deepEqual(varningar, []);
+});
+
+test('resultatfil utan datum varnar inte', async (t) => {
+  const store = createStore();
+  applyMop(store, 1, MOP_COMPLETE);
+
+  const varningar = [];
+  const original = console.warn;
+  console.warn = (...a) => varningar.push(a.join(' '));
+  t.after(() => { console.warn = original; });
+
+  applyIof(store, 1, IOF_RESULTLIST.replace('<Date>2026-08-06</Date>', ''));
+  assert.deepEqual(varningar, [], 'saknas datum går det inte att avgöra');
+});
+
 test('IOF-endpoint kräver rätt lösenord', async (t) => {
   const { server, base } = await startServer({ password: 'hemligt' });
   t.after(() => server.close());

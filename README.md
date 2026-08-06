@@ -169,6 +169,7 @@ för hela stämplingslistan har resultatfilen inte nått fram – se punkt 3.
 | --- | --- |
 | Kvittot visar bara radiotider | Resultatfilen når inte fram – kontrollera uppladdningsfönstret. |
 | Två tävlingar med samma namn i listan | MeOS och uppladdningsprogrammet använder olika tävlings-id. Loggen varnar när det inträffar; placeringen räknas då på fel underlag. |
+| Sträcktiderna hör inte ihop med loppet | Uppladdningsprogrammet pekar på en gammal resultatfil. Loggen varnar när filens datum skiljer sig från tävlingens. |
 | `BADPWD` i uppladdningsfönstret | Lösenordet skiljer sig från `MEOS_PASSWORD` på servern. |
 | `413` i MeOS eller uppladdningen | nginx framför tjänsten saknar `client_max_body_size 32m;`. |
 | Löparen hittar inte sitt kvitto | Sök på namn i stället; delad bricka ger en valbar lista. |
