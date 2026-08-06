@@ -168,12 +168,28 @@ Tjänsten lyssnar på port 3000 och sparar tävlingsdata i `./data`.
 
 **Nåbarhet från internet** (löparna kommer via mobildata):
 
-- **Rekommenderat: Cloudflare Tunnel** – gratis, kräver ingen portöppning
-  eller publik IP (fungerar även bakom CGNAT, vilket många ISP:er kör) och
-  ger automatiskt HTTPS på ett fast värdnamn. Kör `cloudflared` som extra
-  container på NAS:en och peka tunneln mot `http://meos-kvitto:3000`.
-- Alternativt klassisk portöppning + DDNS + omvänd proxy med Lets
-  Encrypt-certifikat (t.ex. NAS:ens inbyggda). Kräver publik IPv4.
+Med nginx som omvänd proxy på NAS:en (hostname → container) och
+Cloudflare-proxy framför räcker det att mappa ett värdnamn, t.ex.
+`kvitto.dindomän.se`, till containerns port. Tre saker att kontrollera i
+den kedjan:
+
+- **`client_max_body_size` i nginx** – standard är 1 MB, och en
+  `MOPComplete` eller IOF-resultatfil för en större tävling överskrider
+  det lätt. Då svarar nginx `413` och MeOS-pushen misslyckas mitt under
+  tävlingen. Sätt `client_max_body_size 32m;` för värdnamnet (tjänstens
+  egen gräns är 32 MB).
+- **Cloudflare SSL/TLS-läge** – kör "Full (strict)" med giltigt certifikat
+  på nginx (Lets Encrypt eller ett Cloudflare Origin-certifikat), inte
+  "Flexible".
+- **Ingen cachning av API:t** – Cloudflare cachar som standard bara
+  statiska filändelser, så `/api/*` och POST-endpoints påverkas inte. Om
+  du har egna Page Rules/Cache Rules för domänen: undanta värdnamnet.
+
+MeOS-pushen och uppladdningsskriptet skickar sina headers (`competition`,
+`pwd`) oförändrat genom både Cloudflare och nginx – inget särskilt behövs.
+
+Saknar NAS:en publik IPv4 (CGNAT) är Cloudflare Tunnel alternativet:
+`cloudflared` som extra container pekad mot `http://meos-kvitto:3000`.
 
 Tänk på att hemmauppkopplingen och NAS:en blir en single point of failure
 under tävlingsdagen – ha gärna molnalternativet nedan som reservplan.
