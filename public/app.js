@@ -25,7 +25,7 @@ function clearResults() {
   receiptEl.hidden = true;
   receiptEl.innerHTML = '';
   showMessage('');
-  if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+  if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
   current = null;
 }
 
@@ -238,24 +238,55 @@ async function anrop(url, opts, timeoutMs = 25000) {
   }
 }
 
+function stoppaUppdatering() {
+  if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
+}
+
+/**
+ * Schemalägger nästa automatiska uppdatering.
+ *
+ * Det här låg på setInterval(15 s) medan varje anrop får ta upp till 25 s. En
+ * långsam server fick då varje mobil att lägga en ny begäran ovanpå den förra
+ * – flest anrop precis när servern har det som svårast. Timern sätts därför om
+ * först när det föregående anropet är klart, vilket ger en naturlig inbromsning
+ * i stället för en påspädning.
+ */
+function planeraUppdatering() {
+  stoppaUppdatering();
+  if (!current) return; // inget kvitto att uppdatera
+  refreshTimer = setTimeout(
+    () => loadReceipt({ cmp: current.cmp, id: current.id }, { silent: true }),
+    15000
+  );
+}
+
 async function loadReceipt(params, { silent = false } = {}) {
   const qs = new URLSearchParams(params);
   const res = await anrop('api/receipt?' + qs.toString());
   if (res.offline) {
     // Under automatisk uppdatering: behåll kvittot som visas och tig, annars
-    // blinkar ett felmeddelande varje gång täckningen glappar.
+    // blinkar ett felmeddelande varje gång täckningen glappar. Kedjan måste
+    // sättas om här också – annars slutar sidan uppdatera sig för gott vid
+    // första glappet i mobilnätet, och löparen ser ett fruset kvitto.
     if (!silent) showMessage('Ingen kontakt med tjänsten. Kontrollera uppkopplingen.');
+    planeraUppdatering();
     return;
   }
   const data = res.data;
   if (res.status === 300 && data.alternatives) {
     // Flera löpare delar brickan – låt användaren välja.
+    stoppaUppdatering();
+    current = null;
     showMessage('Flera löpare har den brickan – välj i listan.');
     renderHits(data.alternatives);
     return;
   }
   if (!res.ok) {
     if (!silent) showMessage(data.error || 'Kunde inte hämta kvittot.');
+    // Ett serverfel går över; ett 404 betyder att kvittot är borta (gallrat
+    // eller fel länk) och kommer inte tillbaka av att vi frågar igen.
+    if (silent && res.status >= 500) planeraUppdatering();
+    else stoppaUppdatering();
     return;
   }
   showMessage('');
@@ -267,13 +298,8 @@ async function loadReceipt(params, { silent = false } = {}) {
 
   // Auto-refresh while the result is not final.
   const done = data.result.status > 0 && !data.result.preliminary;
-  if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
-  if (!done) {
-    refreshTimer = setInterval(
-      () => loadReceipt({ cmp: current.cmp, id: current.id }, { silent: true }),
-      15000
-    );
-  }
+  if (done) stoppaUppdatering();
+  else planeraUppdatering();
 }
 
 async function search(q) {
