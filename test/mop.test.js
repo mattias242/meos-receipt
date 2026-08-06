@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createStore } from '../lib/store.js';
+import { MOP_STAFETT } from './fixtures/mop.js';
 import { applyMop, parseRadioTimes, parseTeamMembers } from '../lib/mop.js';
 import { buildReceipt } from '../lib/receipt.js';
 
@@ -63,6 +64,36 @@ test('lopp över midnatt wrappar klockslaget', () => {
   assert.equal(r.result.startTime, '23:50:00');
   assert.equal(r.result.finishTime, '00:20:00');
   assert.equal(r.result.time, '30:00');
+});
+
+// ---------------------------------------------------------------------------
+// Stafett (KRAV-3: kvittot visar lagnamnet)
+// ---------------------------------------------------------------------------
+
+function stafettKvitto(competitorId) {
+  const store = createStore();
+  applyMop(store, 1, MOP_STAFETT);
+  return buildReceipt(store.competitions[1], 1, competitorId);
+}
+
+test('kvittot visar lagnamnet för en stafettlöpare', () => {
+  const erik = stafettKvitto(41);
+  assert.equal(erik.runner.name, 'Erik Etapp');
+  assert.equal(erik.runner.team, 'OK Skogen 1');
+
+  const frida = stafettKvitto(42);
+  assert.equal(frida.runner.team, 'OK Skogen 1', 'även sträcka 2 hör till laget');
+});
+
+test('en löpare utanför laget får inget lagnamn', () => {
+  assert.equal(stafettKvitto(43).runner.team, '');
+});
+
+test('lagets medlemmar läses in per sträcka', () => {
+  const store = createStore();
+  applyMop(store, 1, MOP_STAFETT);
+  assert.deepEqual(store.competitions[1].teams[7].members, [[41], [42]]);
+  assert.equal(store.competitions[1].teams[7].name, 'OK Skogen 1');
 });
 
 // ---------------------------------------------------------------------------

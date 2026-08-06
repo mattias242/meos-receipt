@@ -36,6 +36,33 @@ export const MOP_COMPLETE = `<?xml version="1.0" encoding="UTF-8"?>
   </cmp>
 </MOPComplete>`;
 
+/**
+ * Stafett: två löpare som ingår i ett lag (MOP-elementet `tm`, med `r` som
+ * anger medlemmar per sträcka).
+ *   41 Erik Etapp   (777777) sträcka 1
+ *   42 Frida Etapp  (888888) sträcka 2
+ *   lag 7 "OK Skogen 1"
+ */
+export const MOP_STAFETT = `<?xml version="1.0" encoding="UTF-8"?>
+<MOPComplete xmlns="http://www.melin.nu/mop">
+  <competition date="2026-08-06" organizer="Testklubben OK">Stafetten</competition>
+  <cls id="3" ord="3">H21 Stafett</cls>
+  <org id="5" nat="SWE">OK Skogen</org>
+  <cmp id="41" card="777777">
+    <base org="5" cls="3" stat="1" st="360000" rt="12000">Erik Etapp</base>
+  </cmp>
+  <cmp id="42" card="888888">
+    <base org="5" cls="3" stat="1" st="372000" rt="13000">Frida Etapp</base>
+  </cmp>
+  <cmp id="43" card="999999">
+    <base org="5" cls="3" stat="1" st="360000" rt="14000">Gustav Ensam</base>
+  </cmp>
+  <tm id="7">
+    <base org="5" cls="3" stat="1" st="360000" rt="25000">OK Skogen 1</base>
+    <r>41;42</r>
+  </tm>
+</MOPComplete>`;
+
 /** Diff där Carl Carlsson går i mål med preliminärt resultat. */
 export const MOP_DIFF_CARL = `<?xml version="1.0" encoding="UTF-8"?>
 <MOPDiff xmlns="http://www.melin.nu/mop">
