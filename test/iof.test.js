@@ -294,6 +294,53 @@ test('delad länk fungerar efter att platshållaren ersatts', async (t) => {
   assert.equal(efter.runner.id, 55, 'och leda till den aktuella posten');
 });
 
+// MeOS skickar en ny MOPComplete varje gång Onlineresultat startas om. Utan
+// att kopplingen från ersatta id:n bevaras dör den delade länken där.
+test('delad länk överlever också en omstart av Onlineresultat', async (t) => {
+  const { base, server } = await startServer();
+  t.after(() => server.close());
+  assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
+
+  const delatId = (await (await fetch(`${base}/api/receipt?card=333333`)).json()).runner.id;
+  const diff = `<?xml version="1.0"?><MOPDiff xmlns="http://www.melin.nu/mop">
+    <cmp id="55" card="333333"><base org="5" cls="2" stat="1" st="363000" rt="24000">Frida Frisk</base></cmp>
+  </MOPDiff>`;
+  assert.equal(await post(base, '/meos', diff), 'OK');
+  assert.equal((await fetch(`${base}/api/receipt?cmp=1&id=${delatId}`)).status, 200);
+
+  // Onlineresultat startas om. Nu är Frida med i deltagarlistan – annars vore
+  // 404 rätt svar, eftersom hon då inte längre är anmäld.
+  const medFrida = MOP_COMPLETE.replace(
+    '</MOPComplete>',
+    '  <cmp id="55" card="333333"><base org="5" cls="2" stat="1" st="363000" rt="24000">Frida Frisk</base></cmp>\n</MOPComplete>'
+  );
+  assert.equal(await post(base, '/meos', medFrida), 'OK');
+
+  const res = await fetch(`${base}/api/receipt?cmp=1&id=${delatId}`);
+  assert.equal(res.status, 200, 'länken ska fungera även efter MOPComplete');
+  assert.equal((await res.json()).runner.id, 55);
+});
+
+test('kopplingen följer inte med till en ny tävling på samma id', async (t) => {
+  const { base, server } = await startServer();
+  t.after(() => server.close());
+  assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
+  const delatId = (await (await fetch(`${base}/api/receipt?card=333333`)).json()).runner.id;
+  const diff = `<?xml version="1.0"?><MOPDiff xmlns="http://www.melin.nu/mop">
+    <cmp id="55" card="333333"><base org="5" cls="2" stat="1" st="363000" rt="24000">Frida Frisk</base></cmp>
+  </MOPDiff>`;
+  assert.equal(await post(base, '/meos', diff), 'OK');
+
+  // Nästa veckas tävling återanvänder tävlings-id
+  const nästa = MOP_COMPLETE
+    .replace('Testtävlingen', 'Nästa veckas tävling')
+    .replace('date="2026-08-06"', 'date="2026-08-13"');
+  assert.equal(await post(base, '/meos', nästa), 'OK');
+
+  const res = await fetch(`${base}/api/receipt?cmp=1&id=${delatId}`);
+  assert.equal(res.status, 404, 'förra tävlingens länkar hör inte hemma i den nya');
+});
+
 test('två löpare som verkligen delar bricka påverkas inte', async (t) => {
   const { base, server } = await startServer();
   t.after(() => server.close());
