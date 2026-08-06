@@ -240,6 +240,53 @@ test('en tävling utan både updated och datum gallras inte', () => {
   assert.equal(store.listCompetitions().length, 1);
 });
 
+// KRAV-14: en oläsbar datafil läggs undan i stället för att skrivas över
+// (KRAV-8). Den innehåller hela deltagarfältet, så den måste gallras enligt
+// samma regel – annars blir en kopia av personuppgifterna kvar för alltid.
+test('undanlagda filer gallras enligt samma regel som tävlingsdata', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-trasig-gallring-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const fil = path.join(dir, 'competitions.json');
+
+  const nu = Date.now();
+  const gammal = `${fil}.trasig-${nu - 91 * DAY}`;
+  const färsk = `${fil}.trasig-${nu - 10 * DAY}`;
+  fs.writeFileSync(gammal, '{"1":{"competitors":{"31":{"name":"Anna Andersson"}}}}');
+  fs.writeFileSync(färsk, '{"1":{"competitors":{"31":{"name":"Berit Bengtsson"}}}}');
+  // En fil som inte är vår ska inte röras
+  const främmande = path.join(dir, 'anteckningar.txt');
+  fs.writeFileSync(främmande, 'viktigt');
+
+  const store = createStore({ dataDir: dir, retentionDays: 90, now: () => nu });
+  store.purgeExpired();
+
+  assert.equal(fs.existsSync(gammal), false, 'personuppgifter äldre än gränsen ska bort');
+  assert.equal(fs.existsSync(färsk), true, 'nyare filer kan fortfarande behövas');
+  assert.equal(fs.existsSync(främmande), true, 'andra filer i katalogen rörs inte');
+});
+
+test('gallring av undanlagda filer stängs av med retentionDays 0', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-trasig-av-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const gammal = path.join(dir, `competitions.json.trasig-${Date.now() - 400 * DAY}`);
+  fs.writeFileSync(gammal, '{}');
+
+  const store = createStore({ dataDir: dir, retentionDays: 0 });
+  store.purgeExpired();
+  assert.equal(fs.existsSync(gammal), true);
+});
+
+test('en undanlagd fil med obegripligt namn rörs inte', (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-trasig-namn-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const konstig = path.join(dir, 'competitions.json.trasig-inte-ett-tal');
+  fs.writeFileSync(konstig, '{}');
+
+  const store = createStore({ dataDir: dir, retentionDays: 90 });
+  store.purgeExpired();
+  assert.equal(fs.existsSync(konstig), true, 'går åldern inte att läsa: låt den vara');
+});
+
 test('gallring vid start rensar även den sparade filen', async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-purge-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
