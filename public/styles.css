@@ -113,9 +113,15 @@ main .lead {
 }
 .searchRow button:hover { background: #274c7f; }
 .searchRow button:active { opacity: 0.85; }
-.searchRow input:focus, #searchForm select:focus, .mailInputs input:focus {
-  outline: 2px solid var(--bla);
+/* Fokusmarkeringen måste synas på fyra olika bakgrunder: blå knappar, vitt
+   kvitto, mörk sida och den svarta mejlknappen. Webbläsarens blå standardring
+   ger bara 1,09:1 mot klubbens blå – knappt synlig. Två lager löser det: den
+   svarta kärnan syns mot ljust, den vita halon mot mörkt. */
+:focus-visible {
+  outline: 2px solid #000000;
   outline-offset: 1px;
+  box-shadow: 0 0 0 4px #ffffff;
+  border-radius: 2px;
 }
 
 .message {

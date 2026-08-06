@@ -87,6 +87,33 @@ test('kvittots text är läsbar mot det vita pappret', () => {
   }
 });
 
+/**
+ * KRAV-17: den som navigerar med tangentbord måste se var fokus står.
+ * Webbläsarens standardring är blå och drunknar mot klubbens blå knappar –
+ * uppmätt 1,09:1, mot WCAG:s krav på 3:1 för fokusindikatorer. Elementen
+ * ligger dessutom på fyra olika bakgrunder, så en enda färg räcker inte.
+ */
+test('fokusmarkeringen syns mot alla bakgrunder sidan använder', () => {
+  const regel = CSS.match(/:focus-visible\s*\{([^}]*)\}/);
+  assert.ok(regel, 'ingen egen fokusmarkering – då gäller webbläsarens blå standardring');
+
+  const kärna = (regel[1].match(/outline:\s*\d+px\s+solid\s+(#[0-9a-f]{3,6})/i) || [])[1];
+  const halo = (regel[1].match(/box-shadow:[^;]*?(#[0-9a-f]{3,6})/i) || [])[1];
+  assert.ok(kärna && halo, 'fokusmarkeringen behöver två lager för att synas överallt');
+
+  // Varje bakgrund som ett fokuserbart element kan ligga på
+  const bakgrunder = {
+    'blå knapp': variabel('--bla'),
+    'vitt kvitto': '#ffffff',
+    'mörk sida': variabel('--bg'),
+    'svart knapp': '#000000',
+  };
+  for (const [namn, bg] of Object.entries(bakgrunder)) {
+    const bästa = Math.max(kontrast(kärna, bg), kontrast(halo, bg));
+    assert.ok(bästa >= 3, `${namn}: bästa lagret ger ${bästa.toFixed(2)}:1, kräver 3:1`);
+  }
+});
+
 test('kvittot är vitt papper med svart text oavsett sidans färger', () => {
   assert.equal(deklaration('.receipt', '--paper'), '#fff');
   assert.equal(deklaration('.receipt', '--ink'), '#000');
