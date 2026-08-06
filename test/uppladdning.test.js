@@ -115,3 +115,35 @@ test('en ändrad fil laddas upp på nytt', async (t) => {
   const r = await (await fetch(`${base}/api/receipt?card=123456`)).json();
   assert.equal(r.splits[0].elapsed, '8:20', 'den nya sträcktiden ska ha slagit igenom');
 });
+
+/**
+ * De tre varianterna ska följas åt (KRAV-11).
+ *
+ * `.sh` provkörs ovan, men rättningen "räkna filen som uppladdad först vid OK"
+ * gjordes bara i `.sh` och `.bat` – PowerShell-varianten behöll buggen i nio
+ * iterationer utan att något märkte det, eftersom varken den eller `.bat` går
+ * att köra här. Textkontrollen nedan är trubbig, men den fångar just det som
+ * hände: en fix som inte följde med till alla varianter.
+ */
+test('alla uppladdningsvarianter har kvar de beteenden kravet slår fast', () => {
+  const varianter = {
+    'ladda-upp-resultat.sh': { ok: /=\s*"OK"/, tvinga: /TVINGA/ },
+    'ladda-upp-resultat.bat': { ok: /=="OK"/, tvinga: /TVINGA/ },
+    'LaddaUppResultat.ps1': { ok: /-eq\s*'OK'/, tvinga: /TvingaEfter/ },
+  };
+  for (const [fil, mönster] of Object.entries(varianter)) {
+    const kod = fs.readFileSync(path.join(path.dirname(SCRIPT), fil), 'utf8');
+    assert.match(
+      kod,
+      mönster.ok,
+      `${fil} räknar inte filen som uppladdad först vid OK – ett BADPWD eller ` +
+        'ERROR tystar då uppladdningen resten av tävlingen'
+    );
+    assert.match(
+      kod,
+      mönster.tvinga,
+      `${fil} laddar aldrig upp om en fil som ser oförändrad ut – ` +
+        'ändringsdetektorn bygger på tidsstämpel och kan missa en ändring'
+    );
+  }
+});
