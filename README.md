@@ -3,7 +3,12 @@
 Ett digitalt alternativ till papperskvittot som normalt skrivs ut vid utläsning
 av stämplingar. Löparen anger sitt SportIdent-nummer (eller söker på namn) och
 får upp sitt kvitto direkt i mobilen: löptid, status, placering, tid efter
-segraren samt sträcktider för radiokontroller.
+segraren samt sträcktider. Kvittot kan delas, laddas ner som PDF eller mejlas
+som PDF-bilaga.
+
+Med bara MOP visas radiokontrollernas tider. Kompletteras det med
+resultatautomatens filer visas hela stämplingslistan i banordning, inklusive
+saknade och extra stämplingar – se [Kompletta stämplingar](#kompletta-stämplingar-via-resultatautomaten-iof-xml).
 
 Tjänsten tar emot data via **MeOS onlineprotokoll (MOP 2.0)** – samma protokoll
 som MeOS inbyggda funktion *Onlineresultat* använder – och fungerar därmed utan
@@ -22,6 +27,8 @@ MeOS ──(MOP XML, POST /meos)──▶ meos-receipt ◀──(mobil, /?card=1
    så data överlever en omstart.
 3. Löparen öppnar sidan i mobilen, anger sitt bricknummer och ser kvittot.
    Sidan uppdaterar sig själv var 15:e sekund tills resultatet är fastställt.
+4. Kvittot kan delas som länk, laddas ner som PDF (en 100 mm kvittoremsa) och
+   mejlas till löparen som PDF-bilaga om e-post är konfigurerat.
 
 Zip-komprimerade sändningar besvaras med `NOZIP`, vilket får MeOS att skicka
 om okomprimerat (samma beteende som referensimplementationen i PHP).
@@ -52,9 +59,10 @@ exekverbara Gherkin-scenarier (svenska) i [`features/`](features/). Ett krav
   väntar på implementation taggas `@wip` och ingår inte i `npm run bdd`.
 - **TDD:** implementationsdetaljer drivs av enhetstester i `test/` — skriv
   testet, se det falla, implementera, se det passera.
-- CI-workflow finns i [`docs/github-actions-ci.yml`](docs/github-actions-ci.yml) –
-  flytta den till `.github/workflows/ci.yml` för att köra båda sviterna på
-  varje push och pull request.
+- **CI vaktar trunken:** [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+  kör båda sviterna på varje push till `main` och varje pull request. Den kan
+  även startas manuellt (`workflow_dispatch`), vilket behövs när en
+  driftstörning hos GitHub gör att push-eventet tappas bort.
 
 ## Konfigurera MeOS
 
@@ -144,6 +152,16 @@ Se KRAV-12 (utgått) i `docs/KRAV.md`.
 | `DATA_DIR` | `./data` | Katalog för persisterad tävlingsdata (JSON). |
 | `PORT` | `3000` | Port för webbservern. |
 | `PUBLIC_DIR` | `public/` bredvid koden/exen | Katalog med kvittosidans statiska filer. |
+| `RETENTION_DAYS` | `90` | Antal dagar tävlingsdata sparas innan den gallras (KRAV-14). `0` stänger av gallringen. |
+| `MAILGUN_SMTP` | — | SMTP-server för utskick av kvitto (KRAV-16). EU-domäner kräver `smtp.eu.mailgun.org`; US-endpointen ger "Authentication failed". |
+| `MAILGUN_USER` | — | SMTP-användare, hela adressen (t.ex. `kvitto@mg.dinklubb.se`). Enbart ett namn ger `501 Username used for auth is not valid email address`. |
+| `MAILGUN_PWD` | — | SMTP-lösenordet, **inte** API-nyckeln. |
+| `MAILGUN_PORT` | `587` | Byt till `465` om 587 är blockerad (`secure` slås då på automatiskt). |
+| `MAIL_FROM` | `Digitalt kvitto <MAILGUN_USER>` | Avsändare i utgående mejl. |
+| `MAIL_REPLY_TO` | — | Valfri svarsadress, t.ex. tävlingsledningens. |
+
+Saknas någon av `MAILGUN_SMTP`, `MAILGUN_USER` och `MAILGUN_PWD` är
+e-postutskicket avstängt: mejlformuläret döljs och endpointen svarar `503`.
 
 ## API
 
@@ -152,10 +170,12 @@ Se KRAV-12 (utgått) i `docs/KRAV.md`.
 | `POST /meos` (även `/update`, `/update.php`) | Tar emot MOP-XML från MeOS. Svarar `OK`, `BADCMP`, `BADPWD`, `NOZIP` eller `ERROR` som text. |
 | `POST /iof` | Tar emot IOF XML 3.0 ResultList (med sträcktider) från resultatautomaten. Samma headers och svar som `/meos`. |
 | `GET /api/competitions` | Lista över inlästa tävlingar. |
-| `GET /api/search?q=<bricka eller namn>[&cmp=N]` | Sök löpare. |
-| `GET /api/receipt?card=<bricka>[&cmp=N]` | Kvitto via bricknummer. |
+| `GET /api/search?q=<bricka eller namn>[&cmp=N]` | Sök löpare. Fler än 100 träffar avvisas med `400` och en uppmaning att skriva mer av namnet (KRAV-5). |
+| `GET /api/receipt?card=<bricka>[&cmp=N]` | Kvitto via bricknummer. Delad bricka ger `300` med en träfflista (KRAV-7). |
 | `GET /api/receipt?id=<löpar-id>&cmp=N` | Kvitto via MeOS löpar-id (delningslänk). |
-| `GET /api/health` | Hälsokontroll. |
+| `GET /api/receipt.pdf?...` | Samma parametrar som `/api/receipt`, men kvittot som PDF-remsa 100 mm bred (KRAV-15). |
+| `POST /api/receipt/email` | Mejlar kvittot som PDF-bilaga. JSON-body med `email` plus `card` eller `id`/`cmp` (KRAV-16). |
+| `GET /api/health` | Hälsokontroll. Fältet `email` anger om e-postutskick är konfigurerat. |
 
 ## Deployment (container på egen NAS/server)
 
@@ -210,8 +230,10 @@ fly deploy
 
 ## Krav
 
-- Server: Node.js 18.18 eller senare (Windows, macOS eller Linux – tjänsten
-  kan även köras direkt på MeOS-datorn med `npm start`).
+- Server: Node.js 22 eller senare (Windows, macOS eller Linux – tjänsten kan
+  även köras direkt på MeOS-datorn med `npm start`). Containern och CI kör
+  samma major; BDD-verktyget stödjer inte längre Node 20, som dessutom är
+  end-of-life.
 - Uppladdningsprogrammet på MeOS-datorn: endast Windows 10 (1803+) eller
   Windows 11 med inbyggd `curl.exe` – inga installationer krävs.
 
