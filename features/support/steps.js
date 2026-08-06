@@ -383,6 +383,14 @@ Then('kvittot innehåller inga stämplingar', function () {
   assert.deepEqual(this.res.body.splits, []);
 });
 
+Then('stämplingen {string} saknar tider', function (name) {
+  const split = this.res.body.splits.find((s) => s.name === name);
+  assert.ok(split, `stämplingen ${name} saknas i kvittot`);
+  assert.equal(split.leg, '', 'en tid utanför loppet ska inte visas som sträcktid');
+  assert.equal(split.elapsed, '');
+  assert.equal(split.clock, '');
+});
+
 Then('kvittot visar starttid {string} och måltid {string}', function (st, ft) {
   assert.equal(this.res.body.result.startTime, st);
   assert.equal(this.res.body.result.finishTime, ft);

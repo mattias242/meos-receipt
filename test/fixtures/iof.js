@@ -11,6 +11,8 @@
  * - Doris Dahl (222222): utgått utan att stämpla något – MeOS exporterar då
  *   hela banan som Missing, vilket annars ger ett kvitto med bara streck
  * - Gustav Grön (555555): utgått efter att ha hunnit två kontroller
+ * - Helga Hök (666666): godkänd, men kontroll 32 har en tid långt utanför
+ *   loppet (gammal stämpling i brickan / kontrollenhet med fel klocka)
  */
 export const IOF_RESULTLIST = `<?xml version="1.0" encoding="UTF-8"?>
 <ResultList xmlns="http://www.orienteering.org/datastandard/3.0" iofVersion="3.0" status="Complete">
@@ -76,6 +78,21 @@ export const IOF_RESULTLIST = `<?xml version="1.0" encoding="UTF-8"?>
         <SplitTime><ControlCode>32</ControlCode><Time>880</Time></SplitTime>
         <SplitTime status="Missing"><ControlCode>45</ControlCode></SplitTime>
         <ControlCard>555555</ControlCard>
+      </Result>
+    </PersonResult>
+    <PersonResult>
+      <Person><Name><Given>Helga</Given><Family>Hök</Family></Name></Person>
+      <Organisation><Name>OK Skogen</Name></Organisation>
+      <Result>
+        <StartTime>2026-08-06T10:00:00+02:00</StartTime>
+        <FinishTime>2026-08-06T10:30:00+02:00</FinishTime>
+        <Time>1800</Time>
+        <Status>OK</Status>
+        <SplitTime><ControlCode>31</ControlCode><Time>300</Time></SplitTime>
+        <SplitTime><ControlCode>32</ControlCode><Time>54288</Time></SplitTime>
+        <SplitTime><ControlCode>45</ControlCode><Time>900</Time></SplitTime>
+        <SplitTime><ControlCode>50</ControlCode><Time>1500</Time></SplitTime>
+        <ControlCard>666666</ControlCard>
       </Result>
     </PersonResult>
     <PersonResult>

@@ -52,6 +52,14 @@ Egenskap: Resultatfiler från MeOS resultatautomat
     Och innehåller kvittot stämplingarna "31, 32, 45"
     Och stämplingen "45" är markerad som saknad
 
+  Scenario: En stämplingstid utanför loppet förstör inte sträcktiderna
+    Givet att resultatautomaten har laddat upp en resultatfil
+    När jag hämtar kvittot för bricka 666666
+    Så visar kvittot status "Godkänd"
+    Och innehåller kvittot stämplingarna "31, 32, 45, 50, Mål"
+    Och stämplingen "32" saknar tider
+    Och sträckan "45" har sträcktid "10:00", totaltid "15:00" och klocktid "10:15:00"
+
   Scenario: Radiotider visas som tidigare när ingen resultatfil finns
     När jag hämtar kvittot för bricka 123456
     Så innehåller kvittot sträckorna "Radio 1, Förvarning, Mål"

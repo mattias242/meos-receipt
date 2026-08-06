@@ -13,7 +13,7 @@ test('parseIofResultList: event, löpare, brickor och sträcktider', () => {
   const { event, results } = parseIofResultList(IOF_RESULTLIST);
   assert.equal(event.name, 'Testtävlingen');
   assert.equal(event.date, '2026-08-06');
-  assert.equal(results.length, 5); // se fixturens huvudkommentar
+  assert.equal(results.length, 6); // se fixturens huvudkommentar
 
   const anna = results.find((r) => r.card === 123456);
   assert.equal(anna.name, 'Anna Andersson');
@@ -105,6 +105,33 @@ test('utgått efter några kontroller behåller sina stämplingar', async (t) =>
   assert.equal(r.splits[0].elapsed, '7:00');
   assert.equal(r.splits[2].status, 'missing');
   assert.equal(r.splits.at(-1).name, '45', 'ingen målrad utan måltid');
+});
+
+// KRAV-10: en gammal stämpling i brickan (eller en kontrollenhet med fel
+// klocka) ger en sträcktid långt utanför loppet. Den ska inte visas som tid,
+// och nästa sträcka ska räknas från föregående giltiga stämpling – annars
+// blir både den raden och nästa obrukbara. I den skarpa Vinterrace-filen
+// drabbade det 40 av 110 löpare.
+test('stämplingstid utanför loppet ignoreras utan att förstöra nästa sträcka', async (t) => {
+  const { base, server } = await startServer();
+  t.after(() => server.close());
+  assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
+  assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
+
+  const r = await (await fetch(`${base}/api/receipt?card=666666`)).json();
+  assert.equal(r.result.statusText, 'Godkänd');
+  assert.deepEqual(r.splits.map((s) => s.name), ['31', '32', '45', '50', 'Mål']);
+
+  const trasig = r.splits[1];
+  assert.equal(trasig.elapsed, '', 'tiden ligger utanför loppet');
+  assert.equal(trasig.leg, '');
+  assert.equal(trasig.clock, '');
+
+  // Nästa kontroll räknas från 31 (300 s), inte från den trasiga tiden
+  assert.equal(r.splits[2].leg, '10:00');   // 900 - 300
+  assert.equal(r.splits[2].elapsed, '15:00');
+  assert.equal(r.splits[3].leg, '10:00');   // 1500 - 900
+  assert.equal(r.splits.at(-1).leg, '5:00'); // Mål: 1800 - 1500
 });
 
 test('IOF-fil fyller i status och måltid för löpare utan MOP-resultat', async (t) => {
