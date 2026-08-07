@@ -29,7 +29,7 @@ flowchart TB
 
   subgraph LAGER["Lagret"]
     STORE["Minne, ett objekt per tävling"]
-    DISK[("competitions.json<br/>tmp + rename")]
+    DISK[("tavlingar/&lt;id&gt;.json<br/>en fil per tävling")]
     STORE -->|"debounce 2 s<br/>flush vid SIGTERM"| DISK
     DISK -->|"gallring efter 90 dygn"| BORT["raderas"]
   end
@@ -80,7 +80,7 @@ Bricknumret används för uppslag men lämnar aldrig tjänsten (KRAV-5).
 | --- | --- | --- |
 | 8 | Sparning via tmp + rename | Ett avbrott mitt i skrivningen lämnar den gamla filen hel i stället för en halv ny. |
 | 9 | `flush()` vid SIGTERM och SIGINT | Sparningen är debouncad och håller inte processen vid liv. Det som väntade försvann vid varje deploy — under loppet läker det av sig självt, efter dagens sista sändning inte. |
-| 10 | Oläsbar fil läggs undan, skrivs aldrig över | Sparas som `.trasig-<tidsstämpel>` så att innehållet går att rädda för hand. |
+| 10 | Oläsbar fil läggs undan, skrivs aldrig över | Sparas som `.trasig-<tidsstämpel>` så att innehållet går att rädda för hand. Med en fil per tävling kostar den bara sin egen tävling, inte alla nittio dagarna. |
 | 11 | Gallring efter `RETENTION_DAYS` | Vid start och en gång per dygn. Undanlagda filer gallras likadant — de innehåller hela deltagarfältet. En tävling som inte går att åldersbestämma tidsstämplas när den upptäcks, annars låg den kvar för alltid. |
 | 12 | Stämplingar överlever `MOPComplete` | MeOS skickar en komplett sändning varje gång Onlineresultat startas om. Stämplingarna kommer från resultatfilen och ägs inte av onlineprotokollet. |
 | 13 | Ofullständiga resultatfiler varnas det om | Fel datum på filen, och löpare utan namn. IOF XML 3.0 har namnet som obligatoriskt och MeOS skriver det alltid — saknas det är något fel uppströms, och kvittot går inte att känna igen. |

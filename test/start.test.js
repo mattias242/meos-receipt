@@ -135,11 +135,11 @@ test('en omstart tappar inte det som väntade på att skrivas', async () => {
   proc.kill('SIGTERM');
   assert.equal(await avslutad, 0, 'SIGTERM ska ge en ren avslutning');
 
-  const fil = path.join(dataDir, 'competitions.json');
+  const fil = path.join(dataDir, 'tavlingar', '1.json');
   assert.ok(fs.existsSync(fil), 'ingenting skrevs till disk – tävlingen är borta');
   const sparat = JSON.parse(fs.readFileSync(fil, 'utf8'));
   assert.equal(
-    sparat['1']?.info?.name,
+    sparat?.info?.name,
     'Testtävlingen',
     'tävlingen nådde aldrig disken innan processen avslutades'
   );

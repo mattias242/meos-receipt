@@ -52,7 +52,12 @@ MeOS resultatautomat ─IOF XML 3.0──▶ POST /iof ──┘   (minne + JSON
   Express-app utan att lyssna; testerna kör `app.listen(0)`. `index.js` är enda
   stället som läser miljövariabler och binder port.
 - `lib/store.js` — allt data i ett objekt per tävlings-id (`cid`), persisteras
-  debounced (`saveDelayMs`) till `DATA_DIR/competitions.json` via tmp + rename.
+  debounced (`saveDelayMs`) till `DATA_DIR/tavlingar/<cid>.json` – en fil per
+  tävling, via tmp + rename. Bara ändrade tävlingar skrivs om: med 90 dagars
+  data kostade hela databasen 60 ms blockerad eventloop per sparning, en
+  enskild tävling 3 ms. En oläsbar fil kostar dessutom bara sin egen tävling,
+  inte alla nittio dagarna. En äldre `competitions.json` delas upp vid start
+  och läggs undan som `.uppdelad-<tid>`.
   Kommentaren överst i filen är schemat för hela datamodellen.
 - `lib/mop.js` — MeOS onlineprotokoll. `MOPComplete` nollställer tävlingen
   (`clearCompetition`), `MOPDiff` muterar inkrementellt.

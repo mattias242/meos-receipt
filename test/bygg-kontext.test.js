@@ -51,7 +51,7 @@ test('känsliga filer följer inte med in i imagen', () => {
     'Vrace_4.xml',           // skarp resultatfil – 110 verkliga personer
     'nagon-annan-fil.xml',
     '.env',                  // Mailgun-uppgifter
-    'data/competitions.json', // hela deltagarfältet
+    'data/tavlingar/1.json', // hela deltagarfältet
     '.git/config',
     'node_modules/express/index.js',
     '.DS_Store',

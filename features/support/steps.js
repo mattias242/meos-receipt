@@ -163,7 +163,7 @@ Given('att all data har sparats till disk', function () {
   // återvände steget genast, med gammalt innehåll, och en efterföljande
   // omstart läste fel data. flush() skriver det som väntar, nu.
   this.app.locals.store.flush();
-  const file = path.join(this.dataDir, 'competitions.json');
+  const file = path.join(this.dataDir, 'tavlingar', '1.json');
   assert.ok(fs.existsSync(file), `${file} skrevs inte – nådde data aldrig lagret?`);
 });
 
