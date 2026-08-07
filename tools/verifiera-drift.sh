@@ -63,7 +63,18 @@ case "$halsa" in
   *) varna "E-postutskick avstängt (MAILGUN_* saknas) – kvittot kan inte mejlas" ;;
 esac
 
-# 5. Kräver skrivändpunkterna lösenord? Tjänsten ligger öppen mot internet
+# 5. Står tjänsten bakom en proxy utan att veta om det? Skriptets egna anrop
+#    går samma väg som löparnas, så tjänsten har redan sett det den behöver.
+case "$halsa" in
+  *'"proxyvarning"'*)
+    fel "Tjänsten står bakom en proxy men TRUST_PROXY är inte satt"
+    printf '      %s\n' "$(printf '%s' "$halsa" | sed -n 's/.*"proxyvarning":"\([^"]*\)".*/\1/p')"
+    printf '      %s\n' "Sätt TRUST_PROXY till antalet proxyhopp (oftast 1)."
+    ;;
+  *) ok "Inställningen för proxy stämmer med hur anropen kommer in" ;;
+esac
+
+# 6. Kräver skrivändpunkterna lösenord? Tjänsten ligger öppen mot internet
 #    (KRAV-13), och utan lösenord kan vem som helst som hittar adressen
 #    ersätta hela tävlingen med en MOPComplete mitt under loppet.
 #
@@ -84,7 +95,7 @@ case "$svar" in
   *) varna "Oväntat svar från /meos: ${svar:0:40}" ;;
 esac
 
-# 6. Får kvitton cachas av mellanled? De innehåller personuppgifter, och ett
+# 7. Får kvitton cachas av mellanled? De innehåller personuppgifter, och ett
 #    cachat svar visar dessutom en gammal status med en ålder som ser färsk ut.
 cache=$(curl -sS -m 15 -o /dev/null -D - "$URL/api/health" 2>/dev/null |
   tr -d '\r' | sed -n 's/^[Cc]ache-[Cc]ontrol: *//p')
@@ -94,14 +105,14 @@ case "$cache" in
   *)          varna "Cache-Control saknar no-store: $cache" ;;
 esac
 
-# 7. Går det att lista tävlingar?
+# 8. Går det att lista tävlingar?
 tavlingar=$(hamta "$URL/api/competitions")
 case "$tavlingar" in
   \[*) ok "Tävlingslistan går att hämta" ;;
   *)   fel "Tävlingslistan svarar oväntat: ${tavlingar:0:60}" ;;
 esac
 
-# 8. Kan en löpare hämta sitt kvitto? Kräver ett bricknummer som finns.
+# 9. Kan en löpare hämta sitt kvitto? Kräver ett bricknummer som finns.
 if [ -n "$BRICKA" ]; then
   kvitto=$(hamta "$URL/api/receipt?card=$BRICKA")
   case "$kvitto" in

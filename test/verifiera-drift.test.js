@@ -91,3 +91,22 @@ test('skriptet kontrollerar att kvitton inte får cachas', async (t) => {
       `fel status och läcker personuppgifter:\n${ut}`
   );
 });
+
+/**
+ * Skriptets egna anrop går genom samma proxy som löparnas, så det ser
+ * varningen utan att behöva veta något om driftmiljön.
+ */
+test('skriptet rapporterar en proxy utan TRUST_PROXY', async (t) => {
+  const { server, base } = await startServer({ password: 'hemligt' });
+  t.after(() => server.close());
+
+  // Härmar nginx eller Flys proxy framför tjänsten
+  await fetch(`${base}/api/competitions`, { headers: { 'x-forwarded-for': '198.51.100.7' } });
+
+  const { ut } = await kör(base);
+  assert.match(
+    ut,
+    /TRUST_PROXY/,
+    `skriptet nämner inte den felande inställningen:\n${ut}`
+  );
+});

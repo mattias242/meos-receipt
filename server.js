@@ -42,6 +42,24 @@ export function createApp({
   // X-Forwarded-For själv och kringgå taket helt.
   if (trustProxy !== false && trustProxy !== null) app.set('trust proxy', trustProxy);
 
+  // Inställningen måste sättas för hand vid driftsättning, och görs den inte
+  // felar ingenting – mejlutskicken slutar bara fungera för alla utom de fem
+  // första, mitt under tävlingen. Men tjänsten kan se det själv: kommer
+  // anropen med X-Forwarded-For står det en proxy där framme.
+  let proxyvarning = null;
+  if (!trustProxy) {
+    app.use((req, res, next) => {
+      if (!proxyvarning && req.get('x-forwarded-for')) {
+        proxyvarning =
+          'Anrop kommer via en proxy men TRUST_PROXY är inte satt – taket för ' +
+          'mejlutskick räknar då alla löpare som samma avsändare.';
+        // En rad, inte en per anrop: loggen behövs som mest under tävling.
+        console.warn(`VARNING: ${proxyvarning}`);
+      }
+      next();
+    });
+  }
+
   // --- XML push endpoints (MeOS online + resultatautomat) ------------------
   // Same header protocol for both: competition (id) and pwd (password).
   function receiveXml(apply) {
@@ -271,6 +289,7 @@ export function createApp({
       email: Boolean(mailer), // styr om kvittosidan visar mejlformuläret
       persistens,
       ...(sparfel ? { sparfel } : {}),
+      ...(proxyvarning ? { proxyvarning } : {}),
     });
   });
 

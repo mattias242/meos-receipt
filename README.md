@@ -199,6 +199,7 @@ allvarligaste felen i projektet har hittats.
 | Mejlformuläret syns inte | `MAILGUN_*` saknas på servern; `/api/health` visar `email: false`. |
 | "För många utskick" för alla | `TRUST_PROXY` är inte satt bakom proxy – taket räknas då på proxyns adress, gemensamt för hela tävlingen. |
 | `sparfel` i `/api/health` | Data kan inte skrivas till disk (full disk, fel rättigheter, trasig volym). Tjänsten fungerar, men allt försvinner vid omstart. |
+| `proxyvarning` i `/api/health` | Anropen kommer via en proxy men `TRUST_PROXY` är inte satt. Sätt den till antalet hopp (oftast 1), annars delar alla löpare på taket för mejlutskick. |
 
 Tävlingsdata ligger kvar i 90 dagar och gallras sedan automatiskt
 (`RETENTION_DAYS`). Startas MeOS Onlineresultat om mitt under tävlingen
