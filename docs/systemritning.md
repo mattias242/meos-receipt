@@ -124,7 +124,8 @@ Bricknumret används för uppslag men lämnar aldrig tjänsten (KRAV-5).
 | --- | --- | --- |
 | 32 | Byggkontexten är en vitlista | Bara det tjänsten kör kommer med. En skarp resultatfil i arbetskatalogen bakades annars in i imagen och följde med dit den driftsätts. |
 | 33 | Tidszon med `tzdata` | Alpine ignorerar annars `TZ` tyst, och kvittots "Uppdaterat" visar en tid före målgången. |
-| 34 | Driftkontrollen körs dagen före | `tools/verifiera-drift.sh` prövar utifrån att tjänsten svarar, att data når disken, att skrivändpunkterna kräver lösenord, att kvitton inte får cachas, att proxyinställningen stämmer och att kvitto och PDF fungerar. |
+| 34 | Tävlingens adress är rotabsolut | Sidan serveras både från `/` och `/t/<id>`. En relativ adress löses mot `/t/` och ger 404 – och servern märker ingenting, eftersom HTML:en levererades felfritt. Sidan blir bara tom. |
+| 35 | Driftkontrollen körs dagen före | `tools/verifiera-drift.sh` prövar utifrån att tjänsten svarar, att data når disken, att skrivändpunkterna kräver lösenord, att kvitton inte får cachas, att proxyinställningen stämmer och att kvitto och PDF fungerar. |
 
 ## Datans livscykel
 

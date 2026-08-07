@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="theme-color" content="#d93f3f" />
 <title>Digitalt kvitto – MeOS</title>
-<link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
 <header>
@@ -26,6 +26,9 @@
   <p class="lead">Ange ditt SportIdent-nummer eller ditt namn, så visas din sträcktidsutläsning direkt i mobilen.</p>
 
   <form id="searchForm" autocomplete="off">
+    <!-- KRAV-18: kommer löparen via tävlingens egen adress ska hon se att hon
+         hamnat rätt, i stället för att välja i en lista hon inte behöver. -->
+    <p id="cmpNamn" class="cmpNamn" hidden></p>
     <select id="cmpSelect" hidden aria-label="Välj tävling"></select>
     <div class="searchRow">
       <!-- Etiketten är dold för synen men läses av skärmläsare. En placeholder
@@ -49,6 +52,6 @@
   Resultatdata via <a href="https://www.melin.nu/meos" target="_blank" rel="noopener">MeOS</a> onlineprotokoll.
 </footer>
 
-<script src="app.js"></script>
+<script src="/app.js"></script>
 </body>
 </html>

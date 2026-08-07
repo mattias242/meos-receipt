@@ -128,6 +128,17 @@ data.
 MeOS-datorn ──(internet)──▶ tjänsten (moln) ◀──(mobildata)── Löparnas mobiler
 ```
 
+### En adress per tävling
+
+Varje tävling har en egen adress: `https://din-server.example/t/<tävlings-id>`,
+där id:t är detsamma som du sätter i MeOS Onlineresultat. Adressen fungerar
+innan tävlingen börjat, så den går att trycka i PM eller sätta som QR-kod på
+arenan i förväg — innan loppet startat säger sidan att inga resultat kommit än.
+
+Löparen som kommer den vägen slipper välja tävling, ser vilken tävling det
+gäller, och delar sitt kvitto med adressen kvar (`/t/4?id=31`) så att
+mottagaren hamnar på rätt tävling.
+
 Checklista tävlingsdagen:
 
 1. Tjänsten driftsatt på internet (se *Deployment* nedan) med

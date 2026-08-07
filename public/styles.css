@@ -73,6 +73,14 @@ main h1 {
   font-weight: 700;
   color: #fff;
 }
+/* KRAV-18: vilken tävling adressen gäller. Löparen kom hit via en QR-kod och
+   ska se att hon hamnat rätt innan hon söker. */
+.cmpNamn {
+  margin: 0 0 0.6rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
 main .lead {
   margin: 0 0 1.2rem;
   font-size: 0.95rem;

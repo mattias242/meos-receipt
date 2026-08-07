@@ -233,6 +233,50 @@ When('jag hämtar kvittot i tävling {int} för bricka {int}', async function (c
   await getJson(this, `/api/receipt?cmp=${cmp}&card=${card}`);
 });
 
+// KRAV-18: adressen som trycks i PM
+When('jag öppnar tävlingens adress för tävling {int}', async function (cid) {
+  const url = `${this.base}/t/${cid}`;
+  const res = await fetch(url);
+  this.sida = { url, status: res.status, typ: res.headers.get('content-type') || '', text: await res.text() };
+});
+
+When('jag öppnar tävlingens adress för {string}', async function (del) {
+  const url = `${this.base}/t/${encodeURIComponent(del)}`;
+  const res = await fetch(url);
+  this.sida = { url, status: res.status, typ: res.headers.get('content-type') || '', text: await res.text() };
+});
+
+Then('får jag kvittosidan', function () {
+  assert.equal(this.sida.status, 200, this.sida.text.slice(0, 120));
+  assert.match(this.sida.typ, /text\/html/);
+  assert.match(this.sida.text, /searchForm/, 'det ska vara kvittosidan, inte något annat');
+});
+
+Then('blir svaret {int}', function (kod) {
+  assert.equal(this.sida.status, kod);
+});
+
+/**
+ * Följer sidans relativa resurser så som webbläsaren gör: mot den adress
+ * sidan faktiskt hämtades från, inte mot roten.
+ */
+Then('går sidans resurser att hämta från den adressen', async function () {
+  const bas = new URL(this.sida.url);
+  const adresser = [...this.sida.text.matchAll(/(?:src|href)="([^"]+)"/g)].map((m) => m[1]);
+  const relativa = adresser.filter((u) => !/^https?:|^#|^mailto:/.test(u));
+  assert.ok(relativa.length >= 2, `hittade bara ${relativa.length} resurser att pröva`);
+
+  for (const url of relativa) {
+    const svar = await fetch(new URL(url, bas));
+    assert.equal(
+      svar.status,
+      200,
+      `${url} löses mot ${new URL(url, bas).pathname} och ger ${svar.status} – ` +
+        'sidan blir tom fast servern svarar 200 på HTML:en'
+    );
+  }
+});
+
 When('jag laddar ner kvittot som PDF för bricka {int}', async function (card) {
   const res = await fetch(`${this.base}/api/receipt.pdf?card=${card}`);
   this.pdf = {

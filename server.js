@@ -329,7 +329,23 @@ export function createApp({
   // --- Static frontend -----------------------------------------------------
   // I den paketerade exe-filen (Node SEA) blir __dirname mappen där exen
   // ligger, så public/ levereras bredvid den. PUBLIC_DIR kan alltid överstyra.
-  app.use(express.static(process.env.PUBLIC_DIR || path.join(__dirname, 'public')));
+  const publicDir = process.env.PUBLIC_DIR || path.join(__dirname, 'public');
+
+  /**
+   * En adress per tävling (KRAV-18), att trycka i PM eller sätta som QR-kod.
+   * Den måste fungera innan tävlingen börjat – PM trycks i förväg – så den
+   * bryr sig inte om tävlingen finns. Sidan säger själv ifrån när det inte
+   * kommit några resultat.
+   *
+   * Bara siffror: allt annat faller igenom till 404 i stället för att bli en
+   * väg in i filsystemet.
+   */
+  app.get('/t/:cid', (req, res, next) => {
+    if (!/^[0-9]+$/.test(req.params.cid)) return next();
+    res.sendFile(path.join(publicDir, 'index.html'));
+  });
+
+  app.use(express.static(publicDir));
 
   return app;
 }

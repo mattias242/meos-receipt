@@ -133,7 +133,7 @@ function klocka() {
  * `svar(url, opts)` är servern: returnera `{ status, body }`, eller ett löfte
  * som dröjer, eller kasta för att härma tappad täckning.
  */
-export function laddaSidan({ svar = () => ({ status: 200, body: {} }), search = '' } = {}) {
+export function laddaSidan({ svar = () => ({ status: 200, body: {} }), search = '', pathname = '/' } = {}) {
   const el = new Map();
   const hämta = (id) => {
     if (!el.has(id)) {
@@ -164,8 +164,9 @@ export function laddaSidan({ svar = () => ({ status: 200, body: {} }), search = 
     AbortController,
     encodeURIComponent,
     document: { getElementById: (id) => hämta(id) },
-    location: { href: `http://test/${search}`, search },
-    history: { replaceState() {} },
+    location: { href: `http://test${pathname}${search}`, search, pathname },
+    // Sidan skriver om adressen när ett kvitto visas; testet vill kunna se den
+    history: { senaste: null, replaceState(_s, _t, url) { this.senaste = url; } },
     navigator: {},
     setTimeout: tid.setTimeout,
     clearTimeout: tid.clearTimeout,
@@ -215,5 +216,7 @@ export function laddaSidan({ svar = () => ({ status: 200, body: {} }), search = 
     flestSamtidigt: (mönster = /./) =>
       flest.reduce((max, bild) => Math.max(max, bild.filter((a) => mönster.test(a.url)).length), 0),
     väntandeTimers: tid.väntande,
+    /** Den senaste adressen sidan skrivit med history.replaceState. */
+    adress: () => context.history.senaste,
   };
 }

@@ -313,3 +313,109 @@ test('ett pågående utskick får sitt besked på den synliga sidan', async () =
       'nod – löparen ser ingenting hända och trycker igen'
   );
 });
+
+/**
+ * KRAV-18: tävlingens egen adress, /t/<id>, trycks i PM och sätts som QR-kod
+ * på arenan. Den måste fungera innan tävlingen börjat – PM trycks i förväg –
+ * och från den ska allt gälla just den tävlingen.
+ */
+function sidaFörTavling(cid, tavlingar, kvitto) {
+  return laddaSidan({
+    pathname: `/t/${cid}`,
+    svar: (url) => {
+      if (url.includes('/health')) return { status: 200, body: { email: false } };
+      if (url.includes('/competitions')) return { status: 200, body: tavlingar };
+      if (url.includes('/search')) return { status: 200, body: kvitto ? [kvitto.träff] : [] };
+      return kvitto ? { status: 200, body: kvitto.kvitto } : { status: 404, body: { error: 'Ingen tävling inläst ännu.' } };
+    },
+  });
+}
+
+const TAVLING = { id: 4, name: 'Västkustens vårserie, deltävling 4', date: '2026-08-06' };
+
+test('tävlingens adress säger ifrån innan resultaten kommit', async () => {
+  const sida = sidaFörTavling(4, []);
+  await sida.tick(100);
+  assert.match(
+    sida.el('message').textContent,
+    /resultat/i,
+    `sidan säger inget om att tävlingen inte börjat: "${sida.el('message').textContent}"`
+  );
+});
+
+test('tävlingens adress visar vilken tävling det gäller', async () => {
+  const sida = sidaFörTavling(4, [TAVLING, { id: 9, name: 'Annan tävling', date: '2026-07-01' }]);
+  await sida.tick(100);
+  assert.match(
+    sida.el('cmpNamn').textContent,
+    /deltävling 4/,
+    'löparen måste kunna se att hon hamnat rätt'
+  );
+  assert.equal(sida.el('cmpSelect').hidden, true, 'väljaren behövs inte när adressen redan pekar ut tävlingen');
+});
+
+test('sökning från tävlingens adress gäller den tävlingen', async () => {
+  const sida = sidaFörTavling(4, [TAVLING, { id: 9, name: 'Annan', date: '2026-07-01' }]);
+  await sida.tick(100);
+  sida.el('query').value = 'anna';
+  await sida.el('searchForm').utlös('submit');
+  await sida.tick(100);
+
+  const sökning = sida.anrop.map((a) => a.url).filter((u) => u.includes('/search')).pop();
+  assert.match(sökning, /cmp=4/, `sökningen band inte tävlingen: ${sökning}`);
+});
+
+test('ett kvitto som delas från tävlingens adress behåller adressen', async () => {
+  const kvitto = {
+    träff: { id: 31, cmp: 4, name: 'Anna Andersson', club: 'OK Skogen', class: 'H21' },
+    kvitto: {
+      competition: { id: 4, name: TAVLING.name, date: '2026-08-06', organizer: '' },
+      runner: { id: 31, name: 'Anna Andersson', club: 'OK Skogen', class: 'H21', bib: '', team: '' },
+      result: { status: 1, statusText: 'Godkänd', preliminary: false, startTime: '10:00:00', finishTime: '10:35:00', time: '35:00', place: 2, prelPlace: null, finished: 3, total: 5, after: '', teamTime: '' },
+      splits: [], updated: '2026-08-06T14:42:36.625Z', updatedAgeSeconds: 3,
+    },
+  };
+  const sida = sidaFörTavling(4, [TAVLING], kvitto);
+  await sida.tick(100);
+  sida.el('query').value = 'anna';
+  await sida.el('searchForm').utlös('submit');
+  await sida.tick(200);
+
+  assert.match(
+    String(sida.adress()),
+    /^\/t\/4\?id=31$/,
+    `adressen tappade tävlingen: ${sida.adress()}`
+  );
+});
+
+/**
+ * Den viktigaste vägen: någon har fått länken delad till sig. Adressen
+ * /t/4?id=31 har inget cmp-parameter, så utan bindningen slår sidan upp
+ * löpar-id 31 i den *senaste* tävlingen – och löpar-id återanvänds mellan
+ * tävlingar (KRAV-6). Mottagaren hade fått en främmande människas kvitto.
+ */
+test('en delad länk slår upp löparen i rätt tävling', async () => {
+  const sida = laddaSidan({
+    pathname: '/t/4',
+    search: '?id=31',
+    svar: (url) => {
+      if (url.includes('/health')) return { status: 200, body: { email: false } };
+      if (url.includes('/competitions')) return { status: 200, body: [TAVLING] };
+      return { status: 200, body: {
+        competition: { id: 4, name: TAVLING.name, date: '2026-08-06', organizer: '' },
+        runner: { id: 31, name: 'Anna Andersson', club: 'OK Skogen', class: 'H21', bib: '', team: '' },
+        result: { status: 1, statusText: 'Godkänd', preliminary: false, startTime: '10:00:00', finishTime: '10:35:00', time: '35:00', place: 2, prelPlace: null, finished: 3, total: 5, after: '', teamTime: '' },
+        splits: [], updated: '2026-08-06T14:42:36.625Z', updatedAgeSeconds: 3,
+      } };
+    },
+  });
+  await sida.tick(150);
+
+  const kvittoanrop = sida.anrop.map((a) => a.url).find((u) => u.includes('receipt'));
+  assert.ok(kvittoanrop, 'inget kvitto hämtades');
+  assert.match(
+    kvittoanrop,
+    /cmp=4/,
+    `uppslaget band inte tävlingen – mottagaren kan få fel löpare: ${kvittoanrop}`
+  );
+});

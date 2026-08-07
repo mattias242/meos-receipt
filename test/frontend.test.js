@@ -109,3 +109,26 @@ test('textfält från tjänsten escapas innan de sätts som HTML', () => {
   }
   assert.deepEqual(oescapade, [], 'fritext från API:t ska gå genom esc()');
 });
+
+/**
+ * KRAV-18: sidan serveras både från / och från /t/<id>.
+ *
+ * En relativ adress löses då mot /t/ och ger 404 – och servern märker
+ * ingenting, eftersom HTML:en levererades felfritt. Sidan blir bara tom.
+ * Det hände: /t/4 hämtade styles.css, app.js och samtliga api/-anrop mot
+ * /t/ och visade en helt vit sida, medan alla tester var gröna.
+ */
+test('alla adresser sidan hämtar är rotabsoluta', () => {
+  const relativa = [...APP.matchAll(/anrop\(\s*(['"`])([^'"`]+)\1/g)]
+    .map((m) => m[2])
+    .filter((u) => !u.startsWith('/'));
+  assert.deepEqual(
+    relativa,
+    [],
+    'en relativ adress löses mot /t/<id> när sidan öppnats via tävlingens adress'
+  );
+
+  const pdfLank = APP.match(/href="([^"]*receipt\.pdf[^"]*)"/);
+  assert.ok(pdfLank, 'PDF-länken saknas');
+  assert.ok(pdfLank[1].startsWith('/'), `PDF-länken är relativ: ${pdfLank[1]}`);
+});

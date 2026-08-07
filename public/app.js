@@ -4,6 +4,16 @@ const cmpSelect = document.getElementById('cmpSelect');
 const messageEl = document.getElementById('message');
 const hitsEl = document.getElementById('hits');
 const receiptEl = document.getElementById('receipt');
+const cmpNamn = document.getElementById('cmpNamn');
+
+/**
+ * Tävlingen ur adressen /t/<id> (KRAV-18), när sidan öppnats via den adress
+ * som tryckts i PM eller satts som QR-kod. Null på förstasidan.
+ */
+const bunden = (() => {
+  const m = /^\/t\/(\d+)\/?$/.exec(location.pathname || '');
+  return m ? m[1] : null;
+})();
 
 let refreshTimer = null;
 // Sant medan ett mejlutskick är på väg. Kvittot får inte ritas om då: noderna
@@ -33,13 +43,29 @@ function clearResults() {
 }
 
 async function loadHealth() {
-  const res = await anrop('api/health');
+  const res = await anrop('/api/health');
   mailEnabled = Boolean(res.data.email);
 }
 
 async function loadCompetitions() {
-  const res = await anrop('api/competitions');
+  const res = await anrop('/api/competitions');
   const list = Array.isArray(res.data) ? res.data : [];
+
+  // Öppnad via tävlingens egen adress: väljaren behövs inte, och löparen ska
+  // se vilken tävling det gäller. Adressen trycks i förväg, så tävlingen kan
+  // mycket väl saknas ännu – då är det inget fel, bara för tidigt.
+  if (bunden) {
+    cmpSelect.hidden = true;
+    const min = list.find((c) => String(c.id) === bunden);
+    if (min) {
+      cmpNamn.textContent = `${min.name} · ${min.date}`;
+      cmpNamn.hidden = false;
+    } else if (!res.offline) {
+      showMessage('Inga resultat har kommit in för den här tävlingen än. Prova igen när loppet har startat.');
+    }
+    return;
+  }
+
   if (list.length > 1) {
     cmpSelect.innerHTML = list
       .map((c) => `<option value="${c.id}">${esc(c.name)} (${esc(c.date)})</option>`)
@@ -147,7 +173,7 @@ function renderReceipt(r) {
     <div class="updated">Uppdaterat ${r.updated ? new Date(r.updated).toLocaleTimeString('sv-SE') : '–'}</div>
     <div class="shareRow">
       <button type="button" id="shareBtn">Dela kvittot</button>
-      <a class="btn" id="pdfBtn" href="api/receipt.pdf?cmp=${encodeURIComponent(r.competition.id)}&id=${encodeURIComponent(r.runner.id)}">Ladda ner PDF</a>
+      <a class="btn" id="pdfBtn" href="/api/receipt.pdf?cmp=${encodeURIComponent(r.competition.id)}&id=${encodeURIComponent(r.runner.id)}">Ladda ner PDF</a>
     </div>
     <form class="mailRow" id="mailForm" hidden>
       <label for="mailTo">Få kvittot mejlat som PDF</label>
@@ -184,7 +210,7 @@ function renderReceipt(r) {
     mejlPågår = true;
     setStatus('Skickar…', false);
     try {
-      const res = await anrop('api/receipt/email', {
+      const res = await anrop('/api/receipt/email', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ cmp: r.competition.id, id: r.runner.id, email }),
@@ -236,6 +262,9 @@ function renderHits(hits) {
  * inte kom fram alls.
  */
 async function anrop(url, opts, timeoutMs = 25000) {
+  // Adresserna är rotabsoluta med flit: sidan serveras både från / och från
+  // /t/<id> (KRAV-18), och en relativ adress löses då mot /t/ och ger 404 –
+  // utan att servern märker något, eftersom HTML:en levererades felfritt.
   // Utan tidsgräns väntar sidan hur länge som helst på ett svar som kanske
   // aldrig kommer – ett glapp i mobilnätet ser då ut som att sidan hängt sig.
   const avbryt = new AbortController();
@@ -281,7 +310,7 @@ function planeraUppdatering() {
 
 async function loadReceipt(params, { silent = false } = {}) {
   const qs = new URLSearchParams(params);
-  const res = await anrop('api/receipt?' + qs.toString());
+  const res = await anrop('/api/receipt?' + qs.toString());
   if (res.offline) {
     // Under automatisk uppdatering: behåll kvittot som visas och tig, annars
     // blinkar ett felmeddelande varje gång täckningen glappar. Kedjan måste
@@ -316,7 +345,12 @@ async function loadReceipt(params, { silent = false } = {}) {
   if (!(silent && mejlPågår)) renderReceipt(data);
   current = { cmp: data.competition.id, id: data.runner.id };
 
-  history.replaceState(null, '', `?cmp=${current.cmp}&id=${current.id}`);
+  // Delar löparen sitt kvitto ska mottagaren hamna på samma tävling (KRAV-18)
+  history.replaceState(
+    null,
+    '',
+    bunden ? `/t/${bunden}?id=${current.id}` : `?cmp=${current.cmp}&id=${current.id}`
+  );
 
   // Auto-refresh while the result is not final.
   const done = data.result.status > 0 && !data.result.preliminary;
@@ -327,8 +361,9 @@ async function loadReceipt(params, { silent = false } = {}) {
 async function search(q) {
   clearResults();
   const params = new URLSearchParams({ q });
-  if (!cmpSelect.hidden) params.set('cmp', cmpSelect.value);
-  const res = await anrop('api/search?' + params.toString());
+  if (bunden) params.set('cmp', bunden);
+  else if (!cmpSelect.hidden) params.set('cmp', cmpSelect.value);
+  const res = await anrop('/api/search?' + params.toString());
   if (res.offline) {
     showMessage('Ingen kontakt med tjänsten. Kontrollera uppkopplingen och försök igen.');
     return;
@@ -365,6 +400,9 @@ Promise.all([loadHealth(), loadCompetitions()]).then(() => {
   if (params.get('id') || params.get('card')) {
     const p = {};
     for (const k of ['cmp', 'id', 'card']) if (params.get(k)) p[k] = params.get(k);
+    // /t/4?id=31 har inget cmp – utan detta slås löpar-id upp i senaste
+    // tävlingen, och id:na återanvänds mellan tävlingar (KRAV-6/KRAV-18).
+    if (bunden) p.cmp = bunden;
     if (p.card) queryInput.value = p.card;
     loadReceipt(p);
   }
