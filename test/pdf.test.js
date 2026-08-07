@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { renderReceiptPdf, receiptLines, receiptFilename } from '../lib/pdf.js';
 
 // KRAV-15: kvitto som PDF
@@ -219,4 +222,104 @@ test('parenteser och bakstreck i namn förstör inte PDF-syntaxen', () => {
   });
   assert.ok(pdfText(pdf).includes('Anna (OK) \\ Andersson'));
   assert.match(pdf.subarray(-8).toString(), /%%EOF/);
+});
+
+/**
+ * KRAV-15: "PDF:en innehåller samma uppgifter som kvittosidan."
+ *
+ * Påståendet stod i kravet men ingenting höll fast det. Fälten hämtas därför
+ * ur kvittosidans egen mall: allt renderReceipt() läser ur kvittot måste
+ * synas i PDF:en, om det inte står med i undantagen nedan med skäl. Ett nytt
+ * fält på sidan hamnar inte i undantagen och kräver alltså ett aktivt
+ * ställningstagande – i stället för att tyst falla bort ur den PDF löparen
+ * mejlar till sig själv.
+ */
+
+/** Fält som medvetet inte är text i PDF:en, med skäl. */
+const INTE_TEXT = {
+  'r.competition.id': 'ingår i PDF-länkens adress, inte i kvittot',
+  'r.runner.id': 'ingår i PDF-länkens adress, inte i kvittot',
+  'r.result': 'behållare, inget värde',
+  'r.splits': 'behållare, inget värde',
+  'r.splits.length': 'styr om tabellen visas',
+  'res.preliminary': 'flagga; texten den ger prövas separat nedan',
+  's.status': 'flagga; ger märkningen SAKNAS/EXTRA, prövad i eget test',
+  'r.updated': 'formateras olika på sidan och i PDF:en; raden prövas nedan',
+};
+
+/** Fälten renderReceipt() läser ur kvittot, hämtade ur källan. */
+function fältPåKvittosidan() {
+  const app = fs.readFileSync(
+    path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public', 'app.js'),
+    'utf8'
+  );
+  const start = app.indexOf('function renderReceipt(');
+  assert.ok(start > -1, 'renderReceipt saknas i app.js');
+  // Bara mallen: efter den följer mejlformulärets hantering med egna res.*
+  const slut = app.indexOf('receiptEl.hidden = false;', start);
+  const kropp = app.slice(start, slut);
+
+  const vägar = new Set();
+  for (const [, v] of kropp.matchAll(/\br\.([a-zA-Z]+(?:\.[a-zA-Z]+)*)/g)) vägar.add('r.' + v);
+  for (const [, v] of kropp.matchAll(/\bres\.([a-zA-Z]+)/g)) vägar.add('res.' + v);
+  for (const [, v] of kropp.matchAll(/\bs\.([a-zA-Z]+)/g)) vägar.add('s.' + v);
+  return [...vägar].sort();
+}
+
+/** Ett kvitto där varje textfält har ett eget igenkännligt värde. */
+function kvittoMedMarkörer(preliminärt) {
+  return {
+    competition: { id: 1, name: 'TAVLINGSNAMN', date: '2026-08-06', organizer: 'ARRANGORNAMN' },
+    runner: { id: 31, name: 'LOPARNAMN', club: 'KLUBBNAMN', class: 'KLASSNAMN', card: 999111, bib: 'NR77', team: 'LAGNAMN' },
+    result: {
+      status: 1, statusText: 'STATUSTEXT', preliminary: preliminärt,
+      startTime: '11:11:11', finishTime: '22:22:22', time: '33:33',
+      place: preliminärt ? null : 8, prelPlace: preliminärt ? 7 : null,
+      finished: 9, total: 12, after: '+44:44', teamTime: '55:55',
+    },
+    splits: [{ control: 31, name: 'KONTROLLNAMN', status: 'ok', clock: '12:12:12', elapsed: '13:13', leg: '14:14' }],
+    updated: '2026-08-06T14:42:36.625Z',
+    updatedAgeSeconds: 4000,
+  };
+}
+
+test('PDF:en visar allt kvittosidan visar', () => {
+  const värden = {
+    'r.competition.name': 'TAVLINGSNAMN', 'r.competition.date': '2026-08-06',
+    'r.competition.organizer': 'ARRANGORNAMN', 'r.runner.name': 'LOPARNAMN',
+    'r.runner.club': 'KLUBBNAMN', 'r.runner.class': 'KLASSNAMN', 'r.runner.card': '999111',
+    'r.runner.bib': 'NR77', 'r.runner.team': 'LAGNAMN', 'res.statusText': 'STATUSTEXT',
+    'res.time': '33:33', 'res.place': '8', 'res.prelPlace': '7', 'res.finished': '9',
+    'res.after': '+44:44', 'res.teamTime': '55:55', 'res.startTime': '11:11:11',
+    'res.finishTime': '22:22:22', 's.name': 'KONTROLLNAMN', 's.clock': '12:12:12',
+    's.elapsed': '13:13', 's.leg': '14:14',
+  };
+
+  const text = (prel) => receiptLines(kvittoMedMarkörer(prel)).map((l) => l.text).join('\n');
+  const slutgiltig = text(false);
+  const preliminär = text(true);
+
+  for (const väg of fältPåKvittosidan()) {
+    if (INTE_TEXT[väg]) continue;
+    const v = värden[väg];
+    assert.ok(
+      v,
+      `${väg} visas på kvittosidan men saknas i det här testets värden – lägg ` +
+        'till det, eller i INTE_TEXT med skäl'
+    );
+    // prelPlace visas bara på ett preliminärt kvitto och place bara på ett klart
+    assert.ok(
+      slutgiltig.includes(v) || preliminär.includes(v),
+      `${väg} (${v}) visas på kvittosidan men inte i PDF:en – löparen tappar ` +
+        'det när hon mejlar kvittot till sig själv'
+    );
+  }
+});
+
+test('PDF:en märker ut preliminärt resultat och när det uppdaterades', () => {
+  const prel = receiptLines(kvittoMedMarkörer(true)).map((l) => l.text).join('\n');
+  assert.match(prel, /Preliminärt/, 'ett preliminärt resultat måste märkas ut även i PDF:en');
+  assert.match(prel, /^Uppdaterat .+/m, 'utan tidsstämpel går det inte att se hur färskt kvittot är');
+  const klar = receiptLines(kvittoMedMarkörer(false)).map((l) => l.text).join('\n');
+  assert.doesNotMatch(klar, /Preliminärt/, 'ett fastställt resultat ska inte märkas som preliminärt');
 });
