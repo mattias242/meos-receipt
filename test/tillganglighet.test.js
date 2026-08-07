@@ -22,6 +22,15 @@ function variabel(namn) {
   return m[1].trim();
 }
 
+/** Som deklaration(), men null när egenskapen inte är satt i regeln. */
+function deklarationOm(selektor, egenskap) {
+  const esc = selektor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regel = CSS.match(new RegExp(`${esc}\\s*\\{([^}]*)\\}`));
+  if (!regel) return null;
+  const m = regel[1].match(new RegExp(`(?:^|[;\\s])${egenskap}\\s*:\\s*([^;]+);`));
+  return m ? m[1].trim() : null;
+}
+
 /** Värdet på en deklaration inuti en regel, t.ex. ('main .lead', 'color'). */
 function deklaration(selektor, egenskap) {
   const esc = selektor.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -52,6 +61,25 @@ function kontrast(fg, bg) {
 const LITEN = 4.5; // WCAG AA, brödtext
 const STOR = 3.0; // WCAG AA, stor eller fet text
 
+/**
+ * Vilket krav som gäller för texten i en regel, härlett ur dess egen
+ * typografi. WCAG räknar text som stor från 18,66 px om den är fet, annars
+ * från 24 px – och gränsen betyder något: toppradens vita text mot det röda
+ * bandet mäter 4,44:1, vilket klarar 3:1 men inte 4,5:1. Skrivs kravet i
+ * stället för hand fortsätter testet godkänna den även om någon gör rubriken
+ * mindre eller tar bort fetstilen, och då syns det först ute i solen.
+ */
+function kravFör(selektor) {
+  const rem = 16;
+  const px = (v) => (v.endsWith('rem') ? parseFloat(v) * rem : parseFloat(v));
+  const storlek = px(deklaration(selektor, 'font-size'));
+  // font-weight utelämnas ofta; utan den gäller webbläsarens normal (400).
+  // Att anta fetstil här hade sänkt kravet i tysthet – tvärtemot poängen.
+  const vikt = parseInt(deklarationOm(selektor, 'font-weight') ?? '400', 10);
+  const stor = storlek >= 24 || (storlek >= 18.66 && vikt >= 700);
+  return stor ? STOR : LITEN;
+}
+
 test('kontrastfunktionen räknar rätt mot kända värden', () => {
   assert.equal(Math.round(kontrast('#000000', '#ffffff')), 21);
   assert.equal(Math.round(kontrast('#ffffff', '#ffffff')), 1);
@@ -60,10 +88,10 @@ test('kontrastfunktionen räknar rätt mot kända värden', () => {
 test('sidans text är läsbar mot bakgrunden', () => {
   const bg = variabel('--bg');
   const par = [
-    ['rubrik', deklaration('main h1', 'color'), bg, STOR],
-    ['ingress', deklaration('main .lead', 'color'), bg, LITEN],
-    ['toppradens text', '#ffffff', variabel('--rod'), STOR],
-    ['navigationsbandets text', '#ffffff', variabel('--bla'), LITEN],
+    ['rubrik', deklaration('main h1', 'color'), bg, kravFör('main h1')],
+    ['ingress', deklaration('main .lead', 'color'), bg, kravFör('main .lead')],
+    ['toppradens text', '#ffffff', variabel('--rod'), kravFör('.brand')],
+    ['navigationsbandets text', '#ffffff', variabel('--bla'), kravFör('.navText')],
     ['sökknappen', '#ffffff', variabel('--bla'), LITEN],
   ];
   for (const [namn, fg, bakgrund, krav] of par) {
