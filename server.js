@@ -81,6 +81,17 @@ export function createApp({
   app.post('/iof', ...receiveXml((cid, xml) => applyIof(store, cid, xml)));
 
   // --- JSON API ------------------------------------------------------------
+  // Kvittona hämtas över mobildata, ofta genom operatörsproxyer och bakom
+  // nginx eller Cloudflare (KRAV-13). Utan det här får varje mellanled tolka
+  // själv hur länge svaret får ligga kvar: kvittot är personuppgifter, och ett
+  // cachat svar visar dessutom en gammal status med en ålder som ser färsk ut,
+  // eftersom updatedAgeSeconds räknas när svaret byggs. Statiska filer berörs
+  // inte – de ligger efter den här och innehåller inga personuppgifter.
+  app.use('/api', (req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+  });
+
   app.get('/api/competitions', (req, res) => {
     res.json(store.listCompetitions());
   });

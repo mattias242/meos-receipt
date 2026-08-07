@@ -301,6 +301,9 @@ den kedjan:
 - **Ingen cachning av API:t** – Cloudflare cachar som standard bara
   statiska filändelser, så `/api/*` och POST-endpoints påverkas inte. Om
   du har egna Page Rules/Cache Rules för domänen: undanta värdnamnet.
+  Tjänsten svarar dessutom `Cache-Control: no-store` på `/api/*`, så även
+  en operatörsproxy på mobilnätet ska låta bli. Det gäller inte de statiska
+  filerna, som får cachas.
 
 MeOS-pushen och uppladdningsskriptet skickar sina headers (`competition`,
 `pwd`) oförändrat genom både Cloudflare och nginx – inget särskilt behövs.

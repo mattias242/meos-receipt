@@ -307,3 +307,47 @@ test('en bricka söks vidare i andra tävlingar även om cmp är borta', async (
   const r = await (await fetch(`${base}/api/receipt?cmp=99&card=123456`)).json();
   assert.equal(r.runner.name, 'Anna Andersson');
 });
+
+/**
+ * KRAV-13: kvittona hämtas över mobildata, ofta genom operatörsproxyer, och
+ * bakom nginx eller Cloudflare. Utan Cache-Control får ett mellanled tolka
+ * själv hur länge svaret får ligga kvar.
+ *
+ * Två skäl att säga ifrån: kvittot är personuppgifter och ska inte bli
+ * liggande i en cache eller på en delad telefons disk, och ett cachat kvitto
+ * är exakt det frusna kvitto som updatedAgeSeconds finns för att varna om –
+ * men åldern räknas på servern, så ett cachat svar ljuger även om den.
+ */
+test('API-svar får inte cachas av mellanled', async (t) => {
+  const { server, base } = await startServer();
+  t.after(() => server.close());
+  await postMop(base, MOP_COMPLETE);
+
+  for (const väg of [
+    '/api/health',
+    '/api/competitions',
+    '/api/search?q=anna',
+    '/api/receipt?card=123456',
+    '/api/receipt.pdf?card=123456',
+  ]) {
+    const res = await fetch(base + väg);
+    assert.equal(res.status, 200, `${väg} svarade ${res.status}`);
+    assert.match(
+      res.headers.get('cache-control') || '',
+      /no-store/,
+      `${väg} saknar Cache-Control: no-store`
+    );
+  }
+});
+
+test('kvittosidans egna filer cachas som vanligt', async (t) => {
+  const { server, base } = await startServer();
+  t.after(() => server.close());
+  const res = await fetch(`${base}/app.js`);
+  assert.equal(res.status, 200);
+  assert.doesNotMatch(
+    res.headers.get('cache-control') || '',
+    /no-store/,
+    'statiska filer ska få cachas – de innehåller inga personuppgifter'
+  );
+});
