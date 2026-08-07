@@ -11,6 +11,11 @@ const retentionDays = parseInt(process.env.RETENTION_DAYS ?? '90', 10);
 // KRAV-16: antal proxyhopp framför tjänsten, så att takt-begränsaren ser
 // löparen och inte proxyn. 0/tomt = ingen proxy (lita inte på headern).
 const trustProxy = parseInt(process.env.TRUST_PROXY || '0', 10) || false;
+// KRAV-5: hur många olika löpare en klient får se per kvart. Taket räknar
+// personer och inte anrop, så en kvittosida som pollar kostar 1. Högt satt med
+// mobilnätet i åtanke – operatörer lägger många abonnenter bakom samma adress,
+// så på en arena kan hundratals löpare dela IP. 0 stänger av det.
+const readLimit = parseInt(process.env.READ_LIMIT ?? '1000', 10);
 
 // KRAV-13: tjänsten ligger på internet. Utan lösenord kontrolleras ingen
 // pwd-header, och en enda MOPComplete från vem som helst ersätter hela
@@ -36,7 +41,7 @@ if (!mailer) {
   console.warn('E-postutskick av kvitto är avstängt (MAILGUN_SMTP/USER/PWD saknas).');
 }
 
-const app = createApp({ dataDir, password, retentionDays, mailer, trustProxy });
+const app = createApp({ dataDir, password, retentionDays, mailer, trustProxy, readLimit });
 const server = app.listen(port, () => {
   // Den bundna porten, inte den önskade: med PORT=0 väljer OS:et en ledig.
   const bunden = server.address().port;

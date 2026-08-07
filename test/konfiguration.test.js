@@ -27,6 +27,7 @@ const VARIABLER = {
   MAILGUN_USER: { compose: true, env: true },
   MAILGUN_PWD: { compose: true, env: true },
   TRUST_PROXY: { compose: true, env: false }, // sätts i drift, inte lokalt
+  READ_LIMIT: { compose: true, env: false }, // har ett rimligt standardvärde
   MAILGUN_PORT: { compose: true, env: false }, // valfri, dokumenterad i README
   MAIL_FROM: { compose: true, env: false },
   MAIL_REPLY_TO: { compose: true, env: false },

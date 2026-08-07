@@ -237,6 +237,7 @@ Se KRAV-12 (utgått) i `docs/KRAV.md`.
 | --- | --- | --- |
 | `MEOS_PASSWORD` | — | Lösenord som MeOS måste skicka i `pwd`-headern. **Krävs** – tjänsten vägrar starta utan. |
 | `ALLOW_NO_PASSWORD` | — | `1` startar tjänsten utan lösenord, med öppna skrivändpunkter. Bara för ett eget nätverk utan internet (KRAV-12). |
+| `READ_LIMIT` | `1000` | Hur många **olika** löpare en klient får se per kvart (KRAV-5). Räknar personer, inte anrop, så en kvittosida som uppdaterar sig kostar 1. Sänk om du vill bromsa massinsamling hårdare; `0` stänger av. Tänk på att mobiloperatörer lägger många abonnenter bakom samma adress. |
 | `DATA_DIR` | `./data` | Katalog för persisterad tävlingsdata (JSON). |
 | `PORT` | `3000` | Port för webbservern. |
 | `PUBLIC_DIR` | `public/` bredvid koden/exen | Katalog med kvittosidans statiska filer. |

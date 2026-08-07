@@ -11,6 +11,7 @@ primary_region = "arn"
   # Flys proxy är ett hopp; utan detta ser takt-begränsaren proxyns adress
   # för alla löpare och fem mejlutskick låser hela tävlingen ute (KRAV-16).
   TRUST_PROXY = "1"
+  READ_LIMIT = "1000"
   # Tävlingens tidszon; utan den kör maskinen UTC och kvittots "Uppdaterat"
   # visar en annan klocka än tävlingens tider.
   TZ = "Europe/Stockholm"

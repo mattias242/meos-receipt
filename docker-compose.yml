@@ -26,6 +26,8 @@ services:
       RETENTION_DAYS: ${RETENTION_DAYS:-90}
       # Antal proxyhopp framför tjänsten. Ligger nginx framför: 1. Utan proxy: 0.
       TRUST_PROXY: ${TRUST_PROXY:-0}
+      # Antal olika löpare en klient får se per kvart (KRAV-5). 0 = av.
+      READ_LIMIT: ${READ_LIMIT:-1000}
       MAILGUN_SMTP: ${MAILGUN_SMTP:-}
       MAILGUN_USER: ${MAILGUN_USER:-}
       MAILGUN_PWD: ${MAILGUN_PWD:-}

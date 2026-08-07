@@ -7,6 +7,7 @@ import { applyIof } from './lib/iof.js';
 import { buildReceipt, searchCompetitors } from './lib/receipt.js';
 import { renderReceiptPdf, receiptFilename } from './lib/pdf.js';
 import { isValidEmail, createRateLimiter, maskeraAdresser } from './lib/mailer.js';
+import { createReadLimiter } from './lib/lasgrans.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -28,9 +29,14 @@ export function createApp({
   mailer = null,
   emailRateLimit = {},
   trustProxy = false,
+  // KRAV-5: tak för hur många olika löpare en klient får se. 0 = av.
+  // Testerna kör utan tak om de inte ber om ett; annars skulle varje test som
+  // hämtar många kvitton bli beroende av taket.
+  readLimit = 0,
 } = {}) {
   const store = createStore({ dataDir, saveDelayMs, retentionDays, now });
   const emailLimiter = createRateLimiter(emailRateLimit);
+  const läsgräns = createReadLimiter({ max: readLimit });
   const app = express();
   app.disable('x-powered-by');
   // Den som binder porten behöver kunna tömma sparkön vid avslut (KRAV-8).
@@ -122,7 +128,23 @@ export function createApp({
     return list.length ? list[0].id : null;
   }
 
+  /**
+   * Har klienten redan sett så många löpare den får? Taket räknar personer,
+   * inte anrop, så en pollande kvittosida kostar 1 hur länge den än står
+   * öppen (KRAV-5).
+   */
+  function förMångaSedda(req, res) {
+    if (!läsgräns.överSkridet(req.ip || 'okänd')) return false;
+    res.status(429).json({
+      error: 'För många olika kvitton från den här enheten. Försök igen om en stund.',
+    });
+    return true;
+  }
+
+  const räknaSedda = (req, identiteter) => läsgräns.räkna(req.ip || 'okänd', identiteter);
+
   app.get('/api/search', (req, res) => {
+    if (förMångaSedda(req, res)) return;
     const q = String(req.query.q || '').trim();
     if (!q) return res.status(400).json({ error: 'Ange bricknummer eller namn.' });
 
@@ -144,6 +166,7 @@ export function createApp({
         error: `Sökningen gav ${hits.length} träffar. Skriv mer av namnet.`,
       });
     }
+    räknaSedda(req, hits.map((h) => `${h.cmp}:${h.id}`));
     res.json(hits);
   });
 
@@ -227,15 +250,25 @@ export function createApp({
     return { receipt };
   }
 
+  /** Vilka personer ett kvittosvar röjer – kvittot självt, eller en valbar lista. */
+  function identiteterI(receipt, body) {
+    if (receipt) return [`${receipt.competition.id}:${receipt.runner.id}`];
+    return (body?.alternatives || []).map((h) => `${h.cmp}:${h.id}`);
+  }
+
   app.get('/api/receipt', (req, res) => {
+    if (förMångaSedda(req, res)) return;
     const { receipt, status, body } = resolveReceipt(req.query);
+    räknaSedda(req, identiteterI(receipt, body));
     if (!receipt) return res.status(status).json(body);
     res.json(receipt);
   });
 
   // Kvittot som nedladdningsbar PDF (KRAV-15).
   app.get('/api/receipt.pdf', (req, res) => {
+    if (förMångaSedda(req, res)) return;
     const { receipt, status, body } = resolveReceipt(req.query);
+    räknaSedda(req, identiteterI(receipt, body));
     if (!receipt) return res.status(status).json(body);
 
     const pdf = renderReceiptPdf(receipt);
