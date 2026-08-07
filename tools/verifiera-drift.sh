@@ -65,13 +65,19 @@ esac
 
 # 5. Står tjänsten bakom en proxy utan att veta om det? Skriptets egna anrop
 #    går samma väg som löparnas, så tjänsten har redan sett det den behöver.
+hopp=$(printf '%s' "$halsa" | sed -n 's/.*"proxyhopp":\([0-9]*\).*/\1/p')
 case "$halsa" in
   *'"proxyvarning"'*)
-    fel "Tjänsten står bakom en proxy men TRUST_PROXY är inte satt"
+    fel "Proxyinställningen stämmer inte med hur anropen kommer in"
     printf '      %s\n' "$(printf '%s' "$halsa" | sed -n 's/.*"proxyvarning":"\([^"]*\)".*/\1/p')"
-    printf '      %s\n' "Sätt TRUST_PROXY till antalet proxyhopp (oftast 1)."
     ;;
-  *) ok "Inställningen för proxy stämmer med hur anropen kommer in" ;;
+  *)
+    if [ -n "$hopp" ]; then
+      ok "Proxyinställningen stämmer ($hopp led i X-Forwarded-For)"
+    else
+      ok "Inställningen för proxy stämmer med hur anropen kommer in"
+    fi
+    ;;
 esac
 
 # 6. Kräver skrivändpunkterna lösenord? Tjänsten ligger öppen mot internet

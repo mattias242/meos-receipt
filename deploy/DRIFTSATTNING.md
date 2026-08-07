@@ -1,0 +1,119 @@
+# Driftsättning: meos-kvitto.neomeda.eu
+
+Kedjan är **Cloudflare → DSM-nginx på NAS:en → containern**. Uppsättningen
+följer mönstret från `notify.neomeda.eu`: vhosten bor i projektet och
+installeras till `/etc/nginx/conf.d/`.
+
+```mermaid
+flowchart LR
+  K["Löparens mobil"] --> CF["Cloudflare<br/>SSL-läge Full"]
+  MEOS["MeOS på tävlingsdatorn"] --> CF
+  CF --> NG["DSM-nginx<br/>http.meos-kvitto.neomeda.eu.conf"]
+  NG --> APP["container meos-kvitto<br/>127.0.0.1:3459"]
+  APP --> VOL[("/volume2/web/meos-kvitto/data")]
+```
+
+Avläst på NAS:en, inte antaget:
+
+| | |
+| --- | --- |
+| Värdport | **3459** (ledig; youmewe ligger på 3456) |
+| Origin-certifikat | `/etc/ssl/certs/nas-origin.pem`, SAN `*.neomeda.eu` — självsignerat |
+| Cloudflare SSL-läge | **Full**, aldrig *Full (strict)* — certifikatet är självsignerat |
+| `client_max_body_size` | redan `0` globalt i DSM:s nginx; sätts ändå i vhosten |
+| `TRUST_PROXY` | **2** — Cloudflare och nginx bygger båda på `X-Forwarded-For` |
+
+## 1. DNS
+
+`meos-kvitto.neomeda.eu` saknar post. Lägg till den i Cloudflare, proxad
+(orange moln), som övriga värdnamn under `neomeda.eu`.
+
+## 2. Lägg upp projektet
+
+```bash
+# från arbetskatalogen
+git archive --format=tar HEAD | gzip > /tmp/meos-kvitto.tgz
+scp -O /tmp/meos-kvitto.tgz mattiaswahlberg@192.168.1.110:/volume2/web/
+ssh mattiaswahlberg@192.168.1.110 '
+  mkdir -p /volume2/web/meos-kvitto &&
+  tar xzf /volume2/web/meos-kvitto.tgz -C /volume2/web/meos-kvitto'
+```
+
+## 3. Konfigurera och starta
+
+```bash
+ssh mattiaswahlberg@192.168.1.110
+cd /volume2/web/meos-kvitto
+cp deploy/env.exempel .env      # fyll i MEOS_PASSWORD och MAILGUN_PWD
+# porten: 3459 på NAS:en -> 3000 i containern
+sed -i 's/"3000:3000"/"3459:3000"/' docker-compose.yml
+
+DOCKER=/var/packages/ContainerManager/target/usr/bin/docker
+$DOCKER compose up -d --build
+curl -s localhost:3459/api/health
+```
+
+Tjänsten vägrar starta utan `MEOS_PASSWORD` — skrivändpunkterna ligger annars
+öppna mot internet (KRAV-13).
+
+## 4. Installera vhosten
+
+```bash
+sudo cp deploy/http.meos-kvitto.neomeda.eu.conf /etc/nginx/conf.d/
+sudo nginx -t && sudo synosystemctl restart nginx
+```
+
+DSM kan skriva över egna filer i `/etc/nginx/conf.d/` vid större
+uppdateringar — kör då det här steget igen.
+
+## 5. Kontrollera — innan tävlingsdagen
+
+```bash
+tools/verifiera-drift.sh https://meos-kvitto.neomeda.eu
+```
+
+Elva kontroller: att tjänsten svarar, att data når disken, att
+skrivändpunkterna kräver lösenord, att kvitton inte får cachas, att
+proxyinställningen stämmer, och att kvitto och PDF fungerar.
+
+**`TRUST_PROXY` ska inte gissas.** Tjänsten räknar hur många led som faktiskt
+rapporteras i `X-Forwarded-For` och säger vad värdet borde vara:
+
+```
+✗ Proxyinställningen stämmer inte med hur anropen kommer in
+    Anropen kommer via 2 proxyled men TRUST_PROXY är 1 – löparens adress blir
+    då proxyns, gemensam för alla. Sätt TRUST_PROXY till 2.
+```
+
+Med fel värde räknas alla löpare som samma avsändare, och mejltaket låser ut
+hela tävlingen efter fem utskick — utan att något annat ser fel ut. Samma
+siffra finns i `/api/health` som `proxyhopp`.
+
+## 6. MeOS på tävlingsdatorn
+
+| | |
+| --- | --- |
+| Onlineresultat | `https://meos-kvitto.neomeda.eu/meos` |
+| Resultatfiler | `https://meos-kvitto.neomeda.eu/iof` |
+| Lösenord | samma som `MEOS_PASSWORD` |
+
+## 7. Adressen i PM
+
+Varje tävling har en egen adress (KRAV-18), att trycka i PM eller sätta som
+QR-kod på arenan:
+
+```
+https://meos-kvitto.neomeda.eu/t/<tävlings-id>
+```
+
+Id:t är detsamma som du sätter i MeOS Onlineresultat. Adressen fungerar innan
+tävlingen börjat — sidan säger då att inga resultat kommit än — så den kan
+tryckas i förväg.
+
+## Kvarstående, ditt beslut
+
+- **Containern kör som `root`.** Rättningen kräver att datakatalogen ägs av
+  rätt uid; en volym som slutar gå att skriva till på en tävlingsdag är värre
+  än problemet. Se `docs/systemritning.md`.
+- **Läsgränsen är en bromskloss, inte en mur.** `READ_LIMIT=1000` olika löpare
+  per klient och kvart.

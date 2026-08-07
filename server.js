@@ -53,18 +53,40 @@ export function createApp({
   // första, mitt under tävlingen. Men tjänsten kan se det själv: kommer
   // anropen med X-Forwarded-For står det en proxy där framme.
   let proxyvarning = null;
-  if (!trustProxy) {
-    app.use((req, res, next) => {
-      if (!proxyvarning && req.get('x-forwarded-for')) {
-        proxyvarning =
-          'Anrop kommer via en proxy men TRUST_PROXY är inte satt – taket för ' +
-          'mejlutskick räknar då alla löpare som samma avsändare.';
-        // En rad, inte en per anrop: loggen behövs som mest under tävling.
-        console.warn(`VARNING: ${proxyvarning}`);
+  // Minsta antal led som rapporterats i X-Forwarded-For. En klient kan fylla
+  // på headern med egna led, så det *högsta* talet säger ingenting – men
+  // ingen kan ta bort infrastrukturens egna. Det minsta observerade är därför
+  // antalet verkliga hopp, och det TRUST_PROXY ska vara.
+  let proxyhopp = null;
+
+  app.use((req, res, next) => {
+    const rå = req.get('x-forwarded-for');
+    if (rå) {
+      const led = rå.split(',').filter((d) => d.trim()).length;
+      if (proxyhopp === null || led < proxyhopp) proxyhopp = led;
+
+      // Bakom Cloudflare *och* nginx är det två led. Med TRUST_PROXY=1 blir
+      // löparens adress i stället Cloudflares – gemensam för alla – och
+      // mejltaket låser ute hela tävlingen efter fem utskick. Samma fel som
+      // utan inställning alls, bara ett steg längre ut.
+      const ny = !trustProxy
+        ? 'Anrop kommer via en proxy men TRUST_PROXY är inte satt – taket för ' +
+          'mejlutskick räknar då alla löpare som samma avsändare.'
+        : proxyhopp > trustProxy
+          ? `Anropen kommer via ${proxyhopp} proxyled men TRUST_PROXY är ` +
+            `${trustProxy} – löparens adress blir då proxyns, gemensam för alla. ` +
+            `Sätt TRUST_PROXY till ${proxyhopp}.`
+          : null;
+
+      // En rad per iakttagelse, inte en per anrop: loggen behövs som mest
+      // under tävling.
+      if (ny && ny !== proxyvarning) {
+        proxyvarning = ny;
+        console.warn(`VARNING: ${ny}`);
       }
-      next();
-    });
-  }
+    }
+    next();
+  });
 
   // --- XML push endpoints (MeOS online + resultatautomat) ------------------
   // Same header protocol for both: competition (id) and pwd (password).
@@ -328,6 +350,7 @@ export function createApp({
       email: Boolean(mailer), // styr om kvittosidan visar mejlformuläret
       persistens,
       ...(sparfel ? { sparfel } : {}),
+      ...(proxyhopp !== null ? { proxyhopp } : {}),
       ...(proxyvarning ? { proxyvarning } : {}),
     });
   });

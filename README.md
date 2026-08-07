@@ -214,7 +214,7 @@ allvarligaste felen i projektet har hittats.
 | Mejlformuläret syns inte | `MAILGUN_*` saknas på servern; `/api/health` visar `email: false`. |
 | "För många utskick" för alla | `TRUST_PROXY` är inte satt bakom proxy – taket räknas då på proxyns adress, gemensamt för hela tävlingen. |
 | `sparfel` i `/api/health` | Data kan inte skrivas till disk (full disk, fel rättigheter, trasig volym). Tjänsten fungerar, men allt försvinner vid omstart. |
-| `proxyvarning` i `/api/health` | Anropen kommer via en proxy men `TRUST_PROXY` är inte satt. Sätt den till antalet hopp (oftast 1), annars delar alla löpare på taket för mejlutskick. |
+| `proxyvarning` i `/api/health` | Proxyinställningen stämmer inte med hur anropen kommer in – varningen säger vilket värde som gäller. Sätt den till antalet hopp (oftast 1), annars delar alla löpare på taket för mejlutskick. |
 
 Tävlingsdata ligger kvar i 90 dagar och gallras sedan automatiskt
 (`RETENTION_DAYS`). Startas MeOS Onlineresultat om mitt under tävlingen
@@ -257,7 +257,7 @@ Se KRAV-12 (utgått) i `docs/KRAV.md`.
 | `PORT` | `3000` | Port för webbservern. |
 | `PUBLIC_DIR` | `public/` bredvid koden/exen | Katalog med kvittosidans statiska filer. |
 | `RETENTION_DAYS` | `90` | Antal dagar tävlingsdata sparas innan den gallras (KRAV-14). `0` stänger av gallringen. |
-| `TRUST_PROXY` | `0` | Antal proxyhopp framför tjänsten. Sätt `1` bakom Fly.io eller nginx, annars ser takt-begränsaren proxyns adress för alla och fem mejlutskick låser hela tävlingen ute. Lämna `0` utan proxy – då går headern inte att sätta själv. |
+| `TRUST_PROXY` | `0` | Antal proxyhopp framför tjänsten. **Gissa inte** – tjänsten mäter antalet och rapporterar det som `proxyhopp` i `/api/health`; `tools/verifiera-drift.sh` säger vad det ska vara. Cloudflare + nginx = `2`, enbart Fly.io eller nginx = `1`, annars ser takt-begränsaren proxyns adress för alla och fem mejlutskick låser hela tävlingen ute. Lämna `0` utan proxy – då går headern inte att sätta själv. |
 | `MAILGUN_SMTP` | — | SMTP-server för utskick av kvitto (KRAV-16). EU-domäner kräver `smtp.eu.mailgun.org`; US-endpointen ger "Authentication failed". |
 | `MAILGUN_USER` | — | SMTP-användare, hela adressen (t.ex. `kvitto@mg.dinklubb.se`). Enbart ett namn ger `501 Username used for auth is not valid email address`. |
 | `MAILGUN_PWD` | — | SMTP-lösenordet, **inte** API-nyckeln. |
@@ -283,7 +283,12 @@ e-postutskicket avstängt: mejlformuläret döljs och endpointen svarar `503`.
 | `POST /api/receipt/email` | Mejlar kvittot som PDF-bilaga. JSON-body med `email` plus `card` eller `id`/`cmp` (KRAV-16). |
 | `GET /api/health` | Hälsokontroll. `email` anger om e-postutskick är konfigurerat, `persistens` om en datakatalog används, och `sparfel` finns med bara när data inte kan skrivas till disk. |
 
-## Deployment (container på egen NAS/server)
+## Deployment
+
+Driftsättningen av **meos-kvitto.neomeda.eu** (NAS bakom Cloudflare) är
+beskriven steg för steg i [`deploy/DRIFTSATTNING.md`](deploy/DRIFTSATTNING.md),
+med vhost och `.env`-mall i samma katalog.
+ (container på egen NAS/server)
 
 Repots `docker-compose.yml` kör tjänsten i container med persistent
 datamapp – fungerar direkt i Synology Container Manager, QNAP Container

@@ -78,3 +78,66 @@ test('varningen loggas en gång, inte per anrop', async (t) => {
       'under tävling, när den behövs som mest'
   );
 });
+
+/**
+ * KRAV-16: bakom Cloudflare *och* nginx är det två hopp, inte ett.
+ *
+ * Med TRUST_PROXY=1 blir löparens adress i stället Cloudflares, gemensam för
+ * alla – och mejltaket låser ute hela tävlingen efter fem utskick. Det är
+ * samma fel som fanns före rättningen, bara ett steg längre ut, och den
+ * tidigare varningen fångar det inte: inställningen *är* ju satt.
+ *
+ * Tjänsten räknar därför hur många led som faktiskt rapporteras och säger
+ * vad TRUST_PROXY borde vara. Antalet är en mätning att gå efter, inte något
+ * att ställa in automatiskt: en klient kan lägga till egna led i headern, och
+ * därför används det minsta observerade – infrastrukturens egna led.
+ */
+
+const medHopp = (base, ...adresser) =>
+  fetch(`${base}/api/competitions`, { headers: { 'x-forwarded-for': adresser.join(', ') } });
+
+test('tjänsten rapporterar hur många proxyhopp den ser', async (t) => {
+  const { server, base } = await startServer({ trustProxy: 2 });
+  t.after(() => server.close());
+
+  await medHopp(base, '198.51.100.7', '203.0.113.1');
+  const h = await hälsa(base);
+  assert.equal(h.proxyhopp, 2, 'Cloudflare + nginx ger två led i X-Forwarded-For');
+});
+
+test('en för låg inställning upptäcks', async (t) => {
+  const { server, base } = await startServer({ trustProxy: 1 });
+  t.after(() => server.close());
+
+  await medHopp(base, '198.51.100.7', '203.0.113.1');
+  const h = await hälsa(base);
+  assert.match(
+    String(h.proxyvarning),
+    /2/,
+    `två led rapporteras men TRUST_PROXY är 1 – alla löpare räknas som samma ` +
+      `avsändare, och ingenting sa ifrån: ${JSON.stringify(h)}`
+  );
+});
+
+test('rätt inställning varnar inte', async (t) => {
+  const { server, base } = await startServer({ trustProxy: 2 });
+  t.after(() => server.close());
+  await medHopp(base, '198.51.100.7', '203.0.113.1');
+  assert.equal((await hälsa(base)).proxyvarning, undefined);
+});
+
+/**
+ * En klient kan fylla på headern med egna led. Räknades det högsta talet
+ * skulle vem som helst kunna få tjänsten att varna – eller värre, få en
+ * arrangör att höja TRUST_PROXY och därmed börja lita på klientens påhitt.
+ */
+test('påhittade led i headern höjer inte det rapporterade antalet', async (t) => {
+  const { server, base } = await startServer({ trustProxy: 2 });
+  t.after(() => server.close());
+
+  await medHopp(base, '198.51.100.7', '203.0.113.1');
+  await medHopp(base, 'påhittad-1', 'påhittad-2', '198.51.100.7', '203.0.113.1');
+  const h = await hälsa(base);
+  assert.equal(h.proxyhopp, 2, 'det minsta observerade är infrastrukturens egna led');
+  assert.equal(h.proxyvarning, undefined, 'och det ska inte gå att framkalla en varning');
+});

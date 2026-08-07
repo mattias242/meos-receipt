@@ -110,3 +110,22 @@ test('skriptet rapporterar en proxy utan TRUST_PROXY', async (t) => {
     `skriptet nämner inte den felande inställningen:\n${ut}`
   );
 });
+
+/**
+ * Bakom Cloudflare *och* nginx är det två led. Skriptets egna anrop går samma
+ * väg som löparnas, så det ser vad TRUST_PROXY borde vara – i stället för att
+ * arrangören ska gissa och upptäcka felet först när ingen kan mejla sitt
+ * kvitto.
+ */
+test('skriptet säger vad TRUST_PROXY borde vara', async (t) => {
+  const { server, base } = await startServer({ password: 'hemligt', trustProxy: 1 });
+  t.after(() => server.close());
+
+  // Två led, som Cloudflare + nginx
+  await fetch(`${base}/api/competitions`, {
+    headers: { 'x-forwarded-for': '198.51.100.7, 203.0.113.1' },
+  });
+
+  const { ut } = await kör(base);
+  assert.match(ut, /TRUST_PROXY till 2/, `skriptet säger inte vad det borde vara:\n${ut}`);
+});
