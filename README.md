@@ -48,6 +48,9 @@ npm run verify   # båda
 
 ## Arbetssätt: BDD + TDD
 
+Hur delarna hänger ihop, med samtliga skydd inritade där de verkar:
+[`docs/systemritning.md`](docs/systemritning.md).
+
 Kraven är dokumenterade i [`docs/KRAV.md`](docs/KRAV.md) och formulerade som
 exekverbara Gherkin-scenarier (svenska) i [`features/`](features/). Ett krav
 är uppfyllt när dess scenarier är gröna (`npm run bdd`).
