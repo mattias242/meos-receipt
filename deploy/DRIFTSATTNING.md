@@ -45,8 +45,12 @@ ssh mattiaswahlberg@192.168.1.110 '
 ssh mattiaswahlberg@192.168.1.110
 cd /volume2/web/meos-kvitto
 cp deploy/env.exempel .env      # fyll i MEOS_PASSWORD och MAILGUN_PWD
-# porten: 3459 på NAS:en -> 3000 i containern
+chmod 600 .env
 sed -i 's/"3000:3000"/"3459:3000"/' docker-compose.yml
+
+# Synologys Docker skapar inte bind-monteringens katalog själv – utan den
+# vägrar containern starta med "Bind mount failed".
+mkdir -p data
 
 DOCKER=/var/packages/ContainerManager/target/usr/bin/docker
 $DOCKER compose up -d --build
@@ -55,6 +59,18 @@ curl -s localhost:3459/api/health
 
 Tjänsten vägrar starta utan `MEOS_PASSWORD` — skrivändpunkterna ligger annars
 öppna mot internet (KRAV-13).
+
+Lösenordet behöver aldrig passera någon annanstans. Skapa det på NAS:en:
+
+```bash
+openssl rand -base64 24 | tr -d '/+=' | cut -c1-28
+```
+
+Läs det när det ska in i MeOS Onlineresultat:
+
+```bash
+grep '^MEOS_PASSWORD=' /volume2/web/meos-kvitto/.env | cut -d= -f2-
+```
 
 ## 4. Installera vhosten
 
@@ -109,6 +125,15 @@ https://meos-kvitto.neomeda.eu/t/<tävlings-id>
 Id:t är detsamma som du sätter i MeOS Onlineresultat. Adressen fungerar innan
 tävlingen börjat — sidan säger då att inga resultat kommit än — så den kan
 tryckas i förväg.
+
+## Noterat vid driftsättningen
+
+- **Containern kör som `root`**, så filerna den skriver i `data/` blir
+  root-ägda även om katalogen ägs av dig. Det fungerar, men en backup som körs
+  som annan användare kan behöva `sudo`.
+- **Startloggen säger "Löpare når kvittosidan via arenans wifi på …"** och
+  visar containerns interna adress. Raden kommer från reservspåret utan
+  internet (KRAV-12, utgått) och är missvisande här. Kosmetiskt.
 
 ## Kvarstående, ditt beslut
 
