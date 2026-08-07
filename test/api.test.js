@@ -262,3 +262,48 @@ test('MOPComplete replaces earlier data for the competition', async (t) => {
   assert.equal(list.length, 1);
   assert.equal(list[0].name, 'Omstartad tävling');
 });
+
+/**
+ * KRAV-6/KRAV-14: kvittosidan skriver `?cmp=N&id=M` i adressfältet, och
+ * "Dela kvittot" delar just den länken. Pekade cmp på en tävling som inte
+ * finns – gallrad efter 90 dagar, eller ett id som aldrig funnits – föll
+ * uppslaget tyst tillbaka på den senaste tävlingen.
+ *
+ * Löpar-id är MeOS interna och återanvänds mellan tävlingar. Länken visade
+ * alltså en främmande människas kvitto, med namn, klubb, klass och tider.
+ */
+test('en länk till en tävling som inte finns visar inte någon annans kvitto', async (t) => {
+  const { server, base } = await startServer();
+  t.after(() => server.close());
+
+  await postMop(base, MOP_COMPLETE);
+  // Samma interna id (31), en annan människa – så ser nästa tävling ut
+  await postMop(base, MOP_COMPLETE.replace(/Anna Andersson/g, 'Berit Bengtsson')
+    .replace('Testtävlingen', 'Nästa tävling'), { competition: '2' });
+
+  const rätt = await (await fetch(`${base}/api/receipt?cmp=1&id=31`)).json();
+  assert.equal(rätt.runner.name, 'Anna Andersson', 'fel förutsättning');
+
+  const res = await fetch(`${base}/api/receipt?cmp=99&id=31`);
+  const body = await res.json();
+  assert.notEqual(
+    body.runner?.name,
+    'Berit Bengtsson',
+    'länken visade en annan löpares kvitto i stället för att säga att tävlingen är borta'
+  );
+  assert.equal(res.status, 404);
+  assert.match(body.error, /99/, 'felet ska säga vilken tävling som saknas');
+});
+
+/**
+ * För en bricka gäller motsatsen: brickan identifierar personen, så att leta
+ * vidare i äldre tävlingar är precis vad KRAV-6 vill ha.
+ */
+test('en bricka söks vidare i andra tävlingar även om cmp är borta', async (t) => {
+  const { server, base } = await startServer();
+  t.after(() => server.close());
+  await postMop(base, MOP_COMPLETE);
+
+  const r = await (await fetch(`${base}/api/receipt?cmp=99&card=123456`)).json();
+  assert.equal(r.runner.name, 'Anna Andersson');
+});

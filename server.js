@@ -146,6 +146,21 @@ export function createApp({
     let cmpId, competitorId;
     const explicitId = parseInt(params.id || '', 10);
     if (explicitId > 0) {
+      // Löpar-id är MeOS interna och återanvänds mellan tävlingar. Pekar
+      // länken på en tävling som inte finns – gallrad efter 90 dagar (KRAV-14)
+      // – får uppslaget inte falla tillbaka på den senaste: då visas en
+      // främmande människas kvitto för den som sparat eller delat länken.
+      const explicitCmp = parseInt(params.cmp || '', 10);
+      if (explicitCmp > 0 && !store.competitions[explicitCmp]) {
+        return {
+          status: 404,
+          body: {
+            error:
+              `Tävling ${explicitCmp} finns inte längre – tävlingsdata sparas i ` +
+              'begränsad tid. Sök på ditt bricknummer eller namn.',
+          },
+        };
+      }
       cmpId = resolveCmp(params);
       competitorId = explicitId;
       // En delad länk kan peka på ett id som ersatts sedan den skapades, t.ex.
