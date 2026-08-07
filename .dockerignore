@@ -1,6 +1,17 @@
-node_modules
-data
-.env
-.git
-*.log
-test
+# Vitlista: allt utesluts, och bara det tjänsten behöver för att köra
+# släpps in igen.
+#
+# Listan var förut en uppräkning av det man kommit på att utesluta, och
+# .gitignore-regeln för skarpa resultatfiler (/*.xml – personuppgifter) hade
+# aldrig följt med hit. En sådan fil bakades då rakt in i imagen. Med en
+# vitlista är en ny känslig fil utesluten som standard.
+#
+# Lägger du till en fil som ska köra i containern: släpp in den här.
+*
+
+!package.json
+!package-lock.json
+!index.js
+!server.js
+!lib
+!public
