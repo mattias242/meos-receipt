@@ -28,8 +28,8 @@ flowchart TB
   G1 --> STORE
 
   subgraph LAGER["Lagret"]
-    STORE["Minne, ett objekt per tävling"]
-    DISK[("tavlingar/&lt;id&gt;.json<br/>en fil per tävling")]
+    STORE["Register i minnet<br/>namn + bricknummer"]
+    DISK[("tavlingar/&lt;id&gt;.json<br/>läses in vid behov")]
     STORE -->|"debounce 2 s<br/>flush vid SIGTERM"| DISK
     DISK -->|"gallring efter 90 dygn"| BORT["raderas"]
   end

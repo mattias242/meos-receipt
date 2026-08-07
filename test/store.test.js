@@ -413,16 +413,16 @@ test('en tävling utan tidsstämpel får en och gallras sedan som andra', () => 
 
   // Åldern är okänd, så den ska inte kastas direkt – men klockan ska starta.
   assert.deepEqual(store.purgeExpired(), [], 'okänd ålder får inte betyda "gammal"');
-  assert.ok(store.competitions[1], 'tävlingen ska finnas kvar');
+  assert.ok(store.finns(1), 'tävlingen ska finnas kvar');
   assert.ok(
-    store.competitions[1].updated,
+    store.hamta(1).updated,
     'utan tidsstämpel gallras tävlingen aldrig – deltagarfältet blir kvar för alltid'
   );
 
   // 91 dagar senare är den lika gammal som vilken annan tävling som helst
   nu += 91 * 24 * 60 * 60 * 1000;
   assert.deepEqual(store.purgeExpired(), [1]);
-  assert.equal(store.competitions[1], undefined);
+  assert.equal(store.finns(1), false);
 });
 
 test('en oläsbar tidsstämpel behandlas likadant', () => {

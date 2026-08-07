@@ -70,11 +70,11 @@ test('en oläsbar tävlingsfil kostar bara den tävlingen', () => {
 
   const om = createStore({ dataDir: d, saveDelayMs: 60000 });
   assert.deepEqual(
-    Object.keys(om.competitions).sort(),
-    ['1', '3'],
+    om.listCompetitions().map((c) => c.id).sort(),
+    [1, 3],
     'de läsbara tävlingarna ska överleva'
   );
-  assert.equal(om.competitions[1].info.name, 'Tävling 1');
+  assert.equal(om.hamta(1).info.name, 'Tävling 1');
   const undanlagda = fs.readdirSync(path.join(d, 'tavlingar')).filter((f) => f.includes('trasig'));
   assert.equal(undanlagda.length, 1, 'den trasiga filen ska läggas undan, inte skrivas över');
 });
@@ -86,7 +86,9 @@ test('gallring tar bort tävlingens fil', () => {
   store.flush();
   assert.deepEqual(filer(d), ['1.json', '2.json']);
 
-  store.competitions[1].updated = new Date(nu - 91 * 24 * 3600 * 1000).toISOString();
+  store.hamta(1).updated = new Date(nu - 91 * 24 * 3600 * 1000).toISOString();
+  store.touch(1);
+  store.hamta(1).updated = new Date(nu - 91 * 24 * 3600 * 1000).toISOString();
   assert.deepEqual(store.purgeExpired(), [1]);
   store.flush();
   assert.deepEqual(filer(d), ['2.json'], 'den gallrade tävlingens fil ska vara borta');
@@ -96,8 +98,8 @@ test('data överlever en omstart', () => {
   const d = dir();
   medTavlingar(d, [1, 2]).flush();
   const om = createStore({ dataDir: d, saveDelayMs: 60000 });
-  assert.deepEqual(Object.keys(om.competitions).sort(), ['1', '2']);
-  assert.equal(om.competitions[2].info.name, 'Tävling 2');
+  assert.deepEqual(om.listCompetitions().map((c) => c.id).sort(), [1, 2]);
+  assert.equal(om.hamta(2).info.name, 'Tävling 2');
 });
 
 /**
@@ -117,7 +119,7 @@ test('en gammal competitions.json delas upp vid start', () => {
   );
 
   const store = createStore({ dataDir: d, saveDelayMs: 60000 });
-  assert.deepEqual(Object.keys(store.competitions).sort(), ['1', '4']);
+  assert.deepEqual(store.listCompetitions().map((c) => c.id).sort(), [1, 4]);
   assert.deepEqual(filer(d), ['1.json', '4.json']);
   assert.equal(las(d, 1).competitors[31].name, 'Anna');
   assert.equal(
@@ -138,7 +140,7 @@ test('migreringen körs inte om den redan är gjord', () => {
 
   const om = createStore({ dataDir: d, saveDelayMs: 60000 });
   assert.deepEqual(
-    Object.keys(om.competitions).sort(),
+    om.listCompetitions().map((c) => String(c.id)),
     ['1'],
     'finns redan uppdelade filer är de sanningen – en kvarglömd competitions.json får inte läsas in'
   );

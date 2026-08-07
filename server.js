@@ -123,7 +123,7 @@ export function createApp({
   // Resolve which competition to use: explicit cmp or the most recent one.
   function resolveCmp(params) {
     const explicit = parseInt(params.cmp || '', 10);
-    if (explicit > 0 && store.competitions[explicit]) return explicit;
+    if (explicit > 0 && store.finns(explicit)) return explicit;
     const list = store.listCompetitions();
     return list.length ? list[0].id : null;
   }
@@ -149,13 +149,18 @@ export function createApp({
     if (!q) return res.status(400).json({ error: 'Ange bricknummer eller namn.' });
 
     const explicit = parseInt(req.query.cmp || '', 10);
-    const cmpIds = explicit > 0 && store.competitions[explicit]
+    // Registret pekar ut vilka tävlingar som kan matcha, så bara de läses in.
+    // En sökning utan träff – det löparen får när hon stavar fel – rör ingen
+    // fil alls, trots att den går igenom hela databasen (KRAV-8).
+    const cmpIds = explicit > 0 && store.finns(explicit)
       ? [explicit]
-      : store.listCompetitions().map((c) => c.id);
+      : store.tavlingarMedTraff(q);
 
     const hits = [];
     for (const id of cmpIds) {
-      hits.push(...searchCompetitors(store.competitions[id], id, q));
+      const cmp = store.hamta(id);
+      if (!cmp) continue;
+      hits.push(...searchCompetitors(cmp, id, q));
       if (hits.length && !(explicit > 0)) break; // latest competition with a match
     }
 
@@ -172,11 +177,11 @@ export function createApp({
 
   // Find the card in the latest competition where it occurs (KRAV-6).
   function findByCard(card, explicitCmp) {
-    const cmpIds = explicitCmp
-      ? [explicitCmp]
-      : store.listCompetitions().map((c) => c.id);
+    const cmpIds = explicitCmp ? [explicitCmp] : store.tavlingarMedBricka(card);
     for (const cmpId of cmpIds) {
-      const matches = Object.entries(store.competitions[cmpId].competitors)
+      const cmp = store.hamta(cmpId);
+      if (!cmp) continue;
+      const matches = Object.entries(cmp.competitors)
         .filter(([, c]) => c.card === card)
         .map(([id]) => Number(id));
       if (matches.length) return { cmpId, matches };
@@ -203,7 +208,7 @@ export function createApp({
       // – får uppslaget inte falla tillbaka på den senaste: då visas en
       // främmande människas kvitto för den som sparat eller delat länken.
       const explicitCmp = parseInt(params.cmp || '', 10);
-      if (explicitCmp > 0 && !store.competitions[explicitCmp]) {
+      if (explicitCmp > 0 && !store.finns(explicitCmp)) {
         return {
           status: 404,
           body: {
@@ -217,8 +222,9 @@ export function createApp({
       competitorId = explicitId;
       // En delad länk kan peka på ett id som ersatts sedan den skapades, t.ex.
       // när MeOS tagit över en löpare som resultatfilen skapat (KRAV-9).
-      const ersatt = store.competitions[cmpId]?.ersattaIds?.[competitorId];
-      if (ersatt && !store.competitions[cmpId].competitors[competitorId]) {
+      const cmp = store.hamta(cmpId);
+      const ersatt = cmp?.ersattaIds?.[competitorId];
+      if (ersatt && !cmp.competitors[competitorId]) {
         competitorId = ersatt;
       }
     } else {
@@ -228,7 +234,7 @@ export function createApp({
       }
 
       const explicit = parseInt(params.cmp || '', 10);
-      const found = findByCard(card, explicit > 0 && store.competitions[explicit] ? explicit : null);
+      const found = findByCard(card, explicit > 0 && store.finns(explicit) ? explicit : null);
       if (!found) {
         return { status: 404, body: { error: `Ingen löpare med bricka ${card} hittades.` } };
       }
@@ -237,7 +243,7 @@ export function createApp({
         return {
           status: 300,
           body: {
-            alternatives: searchCompetitors(store.competitions[found.cmpId], found.cmpId, String(card)),
+            alternatives: searchCompetitors(store.hamta(found.cmpId), found.cmpId, String(card)),
           },
         };
       }
@@ -245,7 +251,7 @@ export function createApp({
       competitorId = found.matches[0];
     }
 
-    const receipt = buildReceipt(store.competitions[cmpId], cmpId, competitorId);
+    const receipt = buildReceipt(store.hamta(cmpId), cmpId, competitorId);
     if (!receipt) return { status: 404, body: { error: 'Löparen hittades inte.' } };
     return { receipt };
   }

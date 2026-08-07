@@ -51,7 +51,14 @@ MeOS resultatautomat ─IOF XML 3.0──▶ POST /iof ──┘   (minne + JSON
 - `server.js` — `createApp({ dataDir, password, saveDelayMs })` returnerar en
   Express-app utan att lyssna; testerna kör `app.listen(0)`. `index.js` är enda
   stället som läser miljövariabler och binder port.
-- `lib/store.js` — allt data i ett objekt per tävlings-id (`cid`), persisteras
+- `lib/store.js` — **inte allt i minnet.** Ett register (namn, bricknummer,
+  tävlingsuppgifter) räcker för sökning, brickuppslag och tävlingslistan;
+  själva tävlingen läses in från sin fil först när ett kvitto ska byggas, och
+  högst `cacheMax` hålls inlästa. `store.competitions` är därför *cachen*, inte
+  allt som finns — använd `hamta(cid)`, `finns(cid)`, `tavlingarMedTraff(q)`
+  och `tavlingarMedBricka(card)`. Är en tävling inläst går dess objekt före
+  registret, så en ändring syns direkt även före `touch`. Data per tävlings-id
+  (`cid`), persisteras
   debounced (`saveDelayMs`) till `DATA_DIR/tavlingar/<cid>.json` – en fil per
   tävling, via tmp + rename. Bara ändrade tävlingar skrivs om: med 90 dagars
   data kostade hela databasen 60 ms blockerad eventloop per sparning, en
