@@ -209,3 +209,77 @@ test('sträcktabellens kolumner sitter inte ihop', () => {
       '"6:07" och "10:06:07" flyter ihop till "6:0710:06:07"'
   );
 });
+
+/**
+ * Varje färg kvittot faktiskt målar, inte de fem någon kom på.
+ *
+ * Kontrastparen ovan räknades upp för hand och täckte --ink, --muted och de
+ * tre statusfärgerna. Utanför listan stod .prel, .stale, .missRow och båda
+ * .badge-varianterna – alltså precis de färger som bara dyker upp när något
+ * gått fel, och som löparen då mest behöver kunna läsa. De klarade kravet,
+ * men ingenting höll fast dem: .prel ligger på 4,73:1, drygt två tiondelar
+ * över gränsen, och sidans färger har redan justerats en gång.
+ *
+ * Listan hämtas därför ur CSS:en. En ny färg på kvittot bevakas då utan att
+ * någon behöver lägga till den här.
+ */
+
+/** Regler under .receipt som sätter en textfärg, med sin egen bakgrund. */
+function kvittotsFärgregler() {
+  const variabler = {};
+  const receiptRegel = CSS.match(/\.receipt\s*\{([^}]*)\}/)[1];
+  for (const m of receiptRegel.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) variabler[m[1]] = m[2].trim();
+  const lös = (v) => {
+    const m = /var\((--[\w-]+)\)/.exec(v);
+    return m ? variabler[m[1]] : v;
+  };
+
+  // Kommentarerna måste bort först. Med dem kvar hamnar texten före en regel
+  // i selektorn, och varje regel som har en kommentar ovanför sig hoppas tyst
+  // över – .receipt .stale och .receipt th föll bort precis så, och testet såg
+  // grönt ut medan det bevakade tolv färger av fjorton.
+  const utanKommentarer = CSS.replace(/\/\*[\s\S]*?\*\//g, '');
+
+  const regler = [];
+  for (const m of utanKommentarer.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+    const selektor = m[1].trim();
+    const kropp = m[2];
+    if (!/(^|,\s*)\.receipt\b/.test(selektor)) continue;
+    const färg = kropp.match(/(?:^|[;\s])color\s*:\s*([^;]+);/);
+    if (!färg) continue;
+    const bak = kropp.match(/(?:^|[;\s])background(?:-color)?\s*:\s*([^;]+);/);
+    regler.push({
+      selektor,
+      fg: lös(färg[1].trim()),
+      bg: bak ? lös(bak[1].trim()) : variabler['--paper'],
+      kropp,
+    });
+  }
+  return regler;
+}
+
+test('varje färg på kvittot är läsbar mot sin egen bakgrund', () => {
+  const regler = kvittotsFärgregler();
+  assert.ok(
+    regler.length >= 14,
+    `hittade bara ${regler.length} färgregler – tolkningen av CSS:en brister, ` +
+      'och ett test som tyst bevakar färre färger än det påstår är värre än inget'
+  );
+
+  const rem = 16;
+  const px = (v) => (v.endsWith('rem') ? parseFloat(v) * rem : parseFloat(v));
+  for (const { selektor, fg, bg, kropp } of regler) {
+    // Kvittots grundstorlek är 0.9rem; en regel kan sätta sin egen.
+    const storlek = kropp.match(/font-size\s*:\s*([^;]+);/);
+    const vikt = kropp.match(/font-weight\s*:\s*([^;]+);/);
+    const s = storlek ? px(storlek[1].trim()) : 0.9 * rem;
+    const v = vikt ? parseInt(vikt[1], 10) : 400;
+    const krav = s >= 24 || (s >= 18.66 && v >= 700) ? STOR : LITEN;
+
+    const k = kontrast(fg, bg);
+    assert.ok(
+      k >= krav,
+      `${selektor}: ${fg} mot ${bg} ger ${k.toFixed(2)}:1, kräver ${krav}:1`
+    );
+  }
+});
