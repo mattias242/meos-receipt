@@ -177,3 +177,35 @@ test('kvittot är vitt papper med svart text oavsett sidans färger', () => {
     'ingen mörk variant ska färga om kvittot'
   );
 });
+
+/**
+ * KRAV-10/KRAV-17: sträcktabellens kolumner måste ha luft emellan sig.
+ *
+ * Cellerna hade `padding: 0.22rem 0` – noll horisontellt – och de tre
+ * tidskolumnerna är högerställda. Total och Klocka stötte alltså ihop:
+ * "6:07" och "10:06:07" renderades som "6:0710:06:07", och rubrikerna som
+ * "SträckaTotal". Uppmätt glapp: 0 px vid 320, 360, 390 och 430 px bredd.
+ *
+ * Det syntes inte i någon mätning av överflöd – tabellen är smalare än
+ * skärmen, kolumnerna sitter bara ihop. Det upptäcktes genom att titta på
+ * sidan.
+ */
+test('sträcktabellens kolumner sitter inte ihop', () => {
+  const rem = 16;
+  const px = (v) => (v.endsWith('rem') ? parseFloat(v) * rem : parseFloat(v));
+
+  // padding: <lodrätt> <vågrätt> på cellerna i allmänhet
+  const cellPadding = deklaration('.receipt td, .receipt th', 'padding').split(/\s+/);
+  const vågrätt = cellPadding.length > 1 ? px(cellPadding[1]) : px(cellPadding[0]);
+
+  // ...plus eventuell egen indragning på de högerställda tidskolumnerna
+  const numRegel = '.receipt td.num, .receipt th.num';
+  const numVänster = deklarationOm(numRegel, 'padding-left');
+  const glapp = vågrätt * 2 + (numVänster ? px(numVänster) : 0);
+
+  assert.ok(
+    glapp >= 6,
+    `kolumnerna får ${glapp} px luft emellan sig – högerställda tider som ` +
+      '"6:07" och "10:06:07" flyter ihop till "6:0710:06:07"'
+  );
+});

@@ -205,7 +205,31 @@ main .lead {
    i sträcktabellen är radens rubrik och ska läsas som vanlig text. */
 .receipt th { text-align: left; font-weight: 400; color: var(--muted); }
 .receipt .splitsBody th { color: var(--ink); }
-.receipt td.num, .receipt th.num { text-align: right; white-space: nowrap; }
+/* Tidskolumnerna är högerställda och står sida vid sida. Utan indragning
+   stöter de ihop: "6:07" och "10:06:07" blir "6:0710:06:07". */
+.receipt td.num, .receipt th.num {
+  text-align: right;
+  white-space: nowrap;
+  padding-left: 0.45rem;
+}
+
+/* Sträcktabellen har fyra kolumner som inte kan brytas, och en riktig bana
+   ger tjugo rader med tresiffriga kontrollkoder. Uppmätt i webbläsare mot ett
+   kvitto med 22 stämplingar: utan de här två reglerna målas sista kolumnen
+   utanför kvittopappret vid 320 px (24 px utanför), och 1 px utanför redan
+   innan kolumnerna fick sin indragning.
+
+   Papprets sidmarginal räcker för alla vanliga telefoner (360 px och uppåt).
+   Teckenstorleken krymps först under 330 px, där den behövs – att krympa den
+   för alla under 400 px hade gjort tabellen mindre för nästan varje löpare
+   för att vinna en bredd nästan ingen har. Under 300 px räcker det inte;
+   smalare än så är i praktiken bara vikbara telefoners ytterskärm. */
+@media (max-width: 400px) {
+  .receipt { padding-left: 0.7rem; padding-right: 0.7rem; }
+}
+@media (max-width: 330px) {
+  .receipt table { font-size: 0.8rem; }
+}
 
 .receipt .bigTime {
   text-align: center;
