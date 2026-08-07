@@ -24,6 +24,7 @@ async function start(world, opts = {}) {
   await stop(world);
   world.appOpts = opts;
   const app = createApp(opts);
+  world.app = app;
   world.server = await new Promise((resolve) => {
     const s = app.listen(0, () => resolve(s));
   });
@@ -146,15 +147,14 @@ Given(
   }
 );
 
-Given('att all data har sparats till disk', async function () {
+Given('att all data har sparats till disk', function () {
+  // Steget väntade förut på att filen skulle dyka upp. Att den finns är inte
+  // samma sak som att den är aktuell: fanns den sedan en tidigare sparning
+  // återvände steget genast, med gammalt innehåll, och en efterföljande
+  // omstart läste fel data. flush() skriver det som väntar, nu.
+  this.app.locals.store.flush();
   const file = path.join(this.dataDir, 'competitions.json');
-  const deadline = Date.now() + 500;
-  while (!fs.existsSync(file)) {
-    if (Date.now() > deadline) {
-      throw new Error(`${file} skrevs inte inom 500 ms`);
-    }
-    await new Promise((r) => setTimeout(r, 20));
-  }
+  assert.ok(fs.existsSync(file), `${file} skrevs inte – nådde data aldrig lagret?`);
 });
 
 Given('att resultatautomaten har laddat upp en resultatfil', async function () {
@@ -260,8 +260,15 @@ When('tjänsten startas om {int} dagar senare', async function (days) {
 });
 
 When('tjänsten startas om utan tidsförskjutning', async function () {
-  // Gallringen sparas debouncat (saveDelayMs) – låt skrivningen nå disken.
-  await new Promise((r) => setTimeout(r, 50));
+  // Gallringen sparas debouncat. Steget väntade förut en fast stund på att
+  // skrivningen skulle hinna – och på en belastad maskin hann den inte, varpå
+  // omstarten läste en fil som ännu hade kvar den gallrade tävlingen. Det var
+  // orsaken till att sviten föll ibland utan att något var sönder.
+  //
+  // flush() skriver det som väntar, nu. Den skriver bara om något faktiskt
+  // väntar, så scenariot prövar fortfarande att gallringen schemalägger en
+  // sparning – det är bara väntan som försvinner.
+  this.app.locals.store.flush();
   await start(this, { ...this.appOpts, now: undefined });
 });
 

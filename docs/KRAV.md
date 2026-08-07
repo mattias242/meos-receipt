@@ -42,6 +42,10 @@ grönt.
   av enhetstester i `test/` (`npm test`). Skriv testet först, se det falla,
   implementera, se det passera, refaktorera – och committa rött+grönt ihop.
 - **Definition of done:** `npm test` och `npm run bdd` gröna.
+- **Inga tidsberoenden i testerna.** Ett steg som väntar en fast stund på
+  något asynkront faller på en belastad maskin utan att något är sönder, och
+  ett grönt besked man inte litar på är sämre än inget. Vänta på tillståndet i
+  stället – lagret har `flush()` för just det.
 
 ## Avgränsningar
 
