@@ -323,3 +323,54 @@ test('PDF:en märker ut preliminärt resultat och när det uppdaterades', () => 
   const klar = receiptLines(kvittoMedMarkörer(false)).map((l) => l.text).join('\n');
   assert.doesNotMatch(klar, /Preliminärt/, 'ett fastställt resultat ska inte märkas som preliminärt');
 });
+
+/**
+ * KRAV-15: PDF:en deklarerar WinAnsiEncoding, men texten kodades som latin1.
+ *
+ * De två skiljer sig i intervallet 0x80-0x9F, där WinAnsi har just de
+ * typografiska tecknen som förekommer i löpande text: tankstreck, apostrofer
+ * och citattecken. Allt över U+00FF ersattes med '?', så raden
+ * "Preliminärt resultat – ej fastställt" kom ut som
+ * "Preliminärt resultat ? ej fastställt" på varje preliminärt kvitto – det
+ * vill säga på kvittot löparen mejlar till sig själv direkt efter målgång.
+ *
+ * Samma sak drabbade namn med typografisk apostrof, som är vad de flesta
+ * system skriver ut: O'Brien.
+ */
+
+/** Avkodar PDF-texten som en läsare gör: WinAnsi, inte latin1. */
+const WINANSI = {
+  0x80: '€', 0x82: '‚', 0x83: 'ƒ', 0x84: '„', 0x85: '…', 0x86: '†', 0x87: '‡',
+  0x88: 'ˆ', 0x89: '‰', 0x8a: 'Š', 0x8b: '‹', 0x8c: 'Œ', 0x8e: 'Ž', 0x91: '‘',
+  0x92: '’', 0x93: '“', 0x94: '”', 0x95: '•', 0x96: '–', 0x97: '—', 0x98: '˜',
+  0x99: '™', 0x9a: 'š', 0x9b: '›', 0x9c: 'œ', 0x9e: 'ž', 0x9f: 'Ÿ',
+};
+const winAnsiText = (buffer) =>
+  [...pdfText(buffer)].map((c) => WINANSI[c.charCodeAt(0)] ?? c).join('');
+
+test('typografiska tecken överlever till PDF:en', () => {
+  const prel = {
+    ...RECEIPT,
+    result: { ...RECEIPT.result, preliminary: true, place: null, prelPlace: 3 },
+  };
+  const text = winAnsiText(renderReceiptPdf(prel));
+  assert.ok(
+    text.includes('Preliminärt resultat – ej fastställt'),
+    `tankstrecket överlevde inte:\n${text.split('\n').filter((r) => r.includes('Preliminärt')).join('\n')}`
+  );
+});
+
+test('typografisk apostrof i ett namn blir inte ett frågetecken', () => {
+  const text = winAnsiText(
+    renderReceiptPdf({ ...RECEIPT, runner: { ...RECEIPT.runner, name: 'Fiona O’Brien' } })
+  );
+  assert.ok(text.includes('Fiona O’Brien'), `namnet förvanskades:\n${text}`);
+});
+
+test('tecken som WinAnsi inte har blir fortfarande frågetecken, inte skräp', () => {
+  const pdf = renderReceiptPdf({ ...RECEIPT, runner: { ...RECEIPT.runner, name: '大山 Ödmann' } });
+  const text = winAnsiText(pdf);
+  assert.ok(text.includes('Ödmann'), 'latin1-tecken ska bevaras');
+  assert.ok(text.includes('??'), 'tecken utan plats i WinAnsi ersätts');
+  assert.match(pdf.subarray(-8).toString(), /%%EOF/, 'PDF:en ska fortfarande vara giltig');
+});
