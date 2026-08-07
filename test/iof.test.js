@@ -426,13 +426,13 @@ test('löpare utan klubb tas emot', () => {
 });
 
 /**
- * KRAV-5 har ett pris här, och det ska stå skrivet.
+ * Ett robusthetsfall, inte ett verkligt: en namnlös löpare ska inte fälla
+ * tjänsten. Den skarpa Vrace-filen har namn och klubb på alla 110 löpare, och
+ * IOF XML 3.0 har namnet som obligatoriskt i Person – händer det ändå är något
+ * fel uppströms, och det varnas det numera om (se testet längst ner).
  *
- * Bricknumret var förut det enda igenkänningstecknet för en löpare som saknar
- * namn i resultatfilen. Sedan numret aldrig lämnar tjänsten går ett sådant
- * kvitto inte att knyta till en person via en delad länk. Den som själv söker
- * på sin bricka får kvittot direkt och vet därför att det är sitt – det är den
- * vanliga vägen, och den fungerar. Resultatet visas oavsett.
+ * Kvittot byggs alltså, men går inte att känna igen på namnet. Bricknumret
+ * fyllde den rollen förut; sedan KRAV-5 lämnar det aldrig tjänsten.
  */
 test('löpare utan namn får ett kvitto, men inget bricknummer att känna igen det på', () => {
   const store = createStore();
@@ -481,4 +481,54 @@ test('IOF-endpoint kräver rätt lösenord', async (t) => {
   t.after(() => server.close());
   assert.equal(await post(base, '/iof', IOF_RESULTLIST, { pwd: 'fel' }), 'BADPWD');
   assert.equal(await post(base, '/iof', IOF_RESULTLIST, { pwd: 'hemligt' }), 'OK');
+});
+
+/**
+ * KRAV-9: en löpare utan namn betyder att något är fel uppströms.
+ *
+ * IOF XML 3.0 har namnet som en obligatorisk del av `Person`, och MeOS
+ * resultatautomat skriver det alltid – i den skarpa Vrace-filen har alla 110
+ * löpare fullständigt namn och klubb. Dyker en namnlös löpare ändå upp är det
+ * inget tjänsten ska hantera tyst: kvittot blir omöjligt att känna igen, och
+ * orsaken sitter i filen eller i det som skrev den.
+ *
+ * Samma mönster som de andra varningarna i den här filen: tjänsten tar emot
+ * det den får, men säger till arrangören vad som ser fel ut.
+ */
+test('namnlösa löpare i en resultatfil varnas det om', () => {
+  const rader = [];
+  const original = console.warn;
+  console.warn = (...a) => rader.push(a.join(' '));
+  try {
+    const store = createStore();
+    applyIof(store, 1, minimalResultList(
+      '<PersonResult><Person></Person>' +
+      '<Result><Status>OK</Status><Time>600</Time><ControlCard>333</ControlCard></Result></PersonResult>' +
+      '<PersonResult><Person><Name><Given>A</Given><Family>B</Family></Name></Person>' +
+      '<Result><Status>OK</Status><Time>700</Time><ControlCard>334</ControlCard></Result></PersonResult>'
+    ));
+  } finally {
+    console.warn = original;
+  }
+
+  const varning = rader.find((r) => /namn/i.test(r));
+  assert.ok(varning, `ingen varning om den namnlösa löparen:\n${rader.join('\n')}`);
+  assert.match(varning, /1 av 2/, 'varningen ska säga hur många av hur många');
+  assert.match(varning, /333/, 'och vilken bricka, så att den går att slå upp i MeOS');
+});
+
+test('en fullständig resultatfil varnar inte om namn', () => {
+  const rader = [];
+  const original = console.warn;
+  console.warn = (...a) => rader.push(a.join(' '));
+  try {
+    const store = createStore();
+    applyIof(store, 1, minimalResultList(
+      '<PersonResult><Person><Name><Given>A</Given><Family>B</Family></Name></Person>' +
+      '<Result><Status>OK</Status><Time>600</Time><ControlCard>111</ControlCard></Result></PersonResult>'
+    ));
+  } finally {
+    console.warn = original;
+  }
+  assert.deepEqual(rader.filter((r) => /namn/i.test(r)), []);
 });

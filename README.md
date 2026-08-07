@@ -192,6 +192,7 @@ allvarligaste felen i projektet har hittats.
 | Kvittot visar bara radiotider | Resultatfilen når inte fram – kontrollera uppladdningsfönstret. |
 | Två tävlingar med samma namn i listan | MeOS och uppladdningsprogrammet använder olika tävlings-id. Loggen varnar när det inträffar; placeringen räknas då på fel underlag. |
 | Sträcktiderna hör inte ihop med loppet | Uppladdningsprogrammet pekar på en gammal resultatfil. Loggen varnar när filens datum skiljer sig från tävlingens. |
+| "Resultatfilen saknar namn för N av M löpare" | Anmälningar utan namn i MeOS, eller en fil skriven av något annat än resultatautomaten. Kvittot går inte att känna igen utan namn – rätta i MeOS och ladda upp på nytt. |
 | `BADPWD` i uppladdningsfönstret | Lösenordet skiljer sig från `MEOS_PASSWORD` på servern. |
 | `413` i MeOS eller uppladdningen | nginx framför tjänsten saknar `client_max_body_size 32m;`. |
 | Löparen hittar inte sitt kvitto | Sök på namn i stället; delad bricka ger en valbar lista. |
