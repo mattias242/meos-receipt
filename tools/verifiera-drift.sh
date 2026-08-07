@@ -63,14 +63,45 @@ case "$halsa" in
   *) varna "E-postutskick avstängt (MAILGUN_* saknas) – kvittot kan inte mejlas" ;;
 esac
 
-# 4. Går det att lista tävlingar?
+# 5. Kräver skrivändpunkterna lösenord? Tjänsten ligger öppen mot internet
+#    (KRAV-13), och utan lösenord kan vem som helst som hittar adressen
+#    ersätta hela tävlingen med en MOPComplete mitt under loppet.
+#
+#    Sonden skickar en zip-signatur (PK) med fel lösenord. Den avvisas med
+#    NOZIP *efter* lösenordskontrollen, så svaret skiljer på skyddad och öppen
+#    tjänst utan att någonting tolkas eller sparas.
+svar=$(printf 'PK\003\004' | curl -sS -m 15 -X POST "$URL/meos" \
+  -H 'content-type: application/xml' \
+  -H 'competition: 1' \
+  -H 'pwd: fel-losenord-fran-verifiera-drift' \
+  --data-binary @- 2>/dev/null)
+case "$svar" in
+  BADPWD) ok "Skrivändpunkterna kräver lösenord" ;;
+  NOZIP|OK)
+    fel "Skrivändpunkterna saknar lösenord – vem som helst kan skicka in tävlingsdata"
+    printf '      %s\n' "Sätt MEOS_PASSWORD på servern (samma som i MeOS Onlineresultat)."
+    ;;
+  *) varna "Oväntat svar från /meos: ${svar:0:40}" ;;
+esac
+
+# 6. Får kvitton cachas av mellanled? De innehåller personuppgifter, och ett
+#    cachat svar visar dessutom en gammal status med en ålder som ser färsk ut.
+cache=$(curl -sS -m 15 -o /dev/null -D - "$URL/api/health" 2>/dev/null |
+  tr -d '\r' | sed -n 's/^[Cc]ache-[Cc]ontrol: *//p')
+case "$cache" in
+  *no-store*) ok "Kvitton får inte cachas av mellanled" ;;
+  '')         fel "API:t skickar ingen Cache-Control – mellanled får spara kvitton fritt" ;;
+  *)          varna "Cache-Control saknar no-store: $cache" ;;
+esac
+
+# 7. Går det att lista tävlingar?
 tavlingar=$(hamta "$URL/api/competitions")
 case "$tavlingar" in
   \[*) ok "Tävlingslistan går att hämta" ;;
   *)   fel "Tävlingslistan svarar oväntat: ${tavlingar:0:60}" ;;
 esac
 
-# 5. Kan en löpare hämta sitt kvitto? Kräver ett bricknummer som finns.
+# 8. Kan en löpare hämta sitt kvitto? Kräver ett bricknummer som finns.
 if [ -n "$BRICKA" ]; then
   kvitto=$(hamta "$URL/api/receipt?card=$BRICKA")
   case "$kvitto" in
