@@ -175,3 +175,73 @@ test('rate limiter öppnar igen när fönstret passerat', () => {
   t += 1001;
   assert.equal(limiter.allow('1.2.3.4'), true);
 });
+
+/**
+ * KRAV-16: mejlets sammanfattning får inte säga något annat än kvittot.
+ *
+ * Sammanfattningen var en handplockad delmängd – tid, status, placering – och
+ * hade glidit ifrån vad kvittosidan och PDF:en visar. Två följder, båda
+ * synliga i förhandsvisningen på låsskärmen, som är där sammanfattningen
+ * faktiskt läses:
+ *
+ * Ett preliminärt resultat stod som "Status: Godkänd" utan förbehåll, och den
+ * preliminära placeringen föll bort helt eftersom bara `place` användes. En
+ * löpare kunde alltså citera en placering som inte var fastställd.
+ *
+ * En stafettlöpare fick sin egen sträcktid men inte lagets – och det är
+ * lagets tid som säger hur laget ligger till (KRAV-3).
+ */
+
+/** Skickar ett kvitto och returnerar meddelandet, utan att något lämnar maskinen. */
+async function skicka(resultat, löpare = {}) {
+  const sent = [];
+  const mailer = createMailer({
+    from: 'kvitto@example.test',
+    transport: { async sendMail(m) { sent.push(m); return { messageId: '1' }; } },
+  });
+  await mailer.sendReceipt({
+    to: 'loparen@example.org',
+    receipt: {
+      ...RECEIPT,
+      runner: { ...RECEIPT.runner, ...löpare },
+      result: { ...RECEIPT.result, ...resultat },
+    },
+  });
+  return sent[0];
+}
+
+test('ett preliminärt resultat märks ut i mejlet', async () => {
+  const mail = await skicka({
+    preliminary: true, statusText: 'Godkänd', time: '35:00',
+    place: null, prelPlace: 2, finished: 9,
+  });
+  assert.match(
+    mail.text,
+    /Preliminärt resultat/,
+    `mejlet läses som ett fastställt resultat:\n${mail.text}`
+  );
+  assert.match(
+    mail.text,
+    /Prel\. placering: 2 av 9/,
+    `den preliminära placeringen föll bort:\n${mail.text}`
+  );
+});
+
+test('ett fastställt resultat får inget förbehåll', async () => {
+  const mail = await skicka({ preliminary: false, place: 2, finished: 9 });
+  assert.doesNotMatch(mail.text, /Preliminärt/);
+  assert.match(mail.text, /Placering: 2 av 9/);
+});
+
+test('en stafettlöpare får lagets tid i mejlet', async () => {
+  const mail = await skicka(
+    { time: '37:30', teamTime: '1:52:10', place: 3, finished: 8 },
+    { team: 'OK Skogen 1' }
+  );
+  assert.match(mail.text, /37:30/, 'den egna sträcktiden ska finnas kvar');
+  assert.match(
+    mail.text,
+    /Lagets tid: 1:52:10/,
+    `lagets tid saknas – den är vad stafettlöparen vill veta:\n${mail.text}`
+  );
+});
