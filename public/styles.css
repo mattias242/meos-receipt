@@ -222,13 +222,19 @@ main .lead {
    Papprets sidmarginal räcker för alla vanliga telefoner (360 px och uppåt).
    Teckenstorleken krymps först under 330 px, där den behövs – att krympa den
    för alla under 400 px hade gjort tabellen mindre för nästan varje löpare
-   för att vinna en bredd nästan ingen har. Under 300 px räcker det inte;
-   smalare än så är i praktiken bara vikbara telefoners ytterskärm. */
+   för att vinna en bredd nästan ingen har.
+
+   Måttet är taget mot det breda fallet: ett lopp på 2:05:50, där totaltiden
+   blir h:mm:ss i stället för mm:ss och kolumnen växer med två tecken. Med
+   loppet under en timme ryms tabellen med god marginal. Under 300 px räcker
+   det ändå inte; smalare än så är i praktiken bara vikbara telefoners
+   ytterskärm. Smala bredder gäller inte bara små skärmar – zoomar man in på
+   en telefon krymper viewporten på samma sätt. */
 @media (max-width: 400px) {
   .receipt { padding-left: 0.7rem; padding-right: 0.7rem; }
 }
 @media (max-width: 330px) {
-  .receipt table { font-size: 0.8rem; }
+  .receipt table { font-size: 0.76rem; }
 }
 
 .receipt .bigTime {

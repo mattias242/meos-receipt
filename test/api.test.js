@@ -351,3 +351,29 @@ test('kvittosidans egna filer cachas som vanligt', async (t) => {
     'statiska filer ska få cachas – de innehåller inga personuppgifter'
   );
 });
+
+/**
+ * KRAV-3: en bana kan ta över en timme.
+ *
+ * Löptid och sträcktider skrivs då som h:mm:ss i stället för mm:ss, och
+ * kolumnen växer med två tecken. Kvittosidans sträcktabell och PDF-remsans
+ * 45 teckens bredd är avstämda mot just det breda fallet – men själva
+ * formatet hade inget test, så antagandet kunde ha ändrats under dem.
+ */
+test('en löptid över en timme skrivs som timmar, inte som 125 minuter', async (t) => {
+  const { server, base } = await startServer();
+  t.after(() => server.close());
+  await postMop(base, MOP_COMPLETE);
+
+  const tider = {
+    21000: '35:00',      // 35 min
+    35990: '59:59',      // sista minuten före timmen
+    36000: '1:00:00',    // exakt en timme
+    75500: '2:05:50',    // ett långt H21-lopp
+  };
+  for (const [rt, väntat] of Object.entries(tider)) {
+    await postMop(base, MOP_COMPLETE.replace('rt="21000"', `rt="${rt}"`));
+    const r = await (await fetch(`${base}/api/receipt?card=123456`)).json();
+    assert.equal(r.result.time, väntat, `rt=${rt} tiondelar`);
+  }
+});
