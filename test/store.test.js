@@ -381,3 +381,54 @@ test('flush utan något att spara rör inte disken', () => {
     'en tom fil skulle skriva över en tidigare tävling vid nästa start'
   );
 });
+
+/**
+ * KRAV-14: en tävling som inte går att åldersbestämma gallrades aldrig.
+ *
+ * ageMs() ger null när varken `updated` eller `info.date` går att tolka, och
+ * purgeExpired hoppade då över tävlingen – för alltid. Live-data har alltid
+ * `updated` (både applyMop och applyIof anropar touch), så det når man bara
+ * med en fil skriven av ett äldre format eller en handredigerad fil. Men det
+ * som ligger kvar är hela deltagarfältet, alltså personuppgifter utan slutdatum
+ * – och gallringen finns just för att det inte ska hända.
+ */
+test('en tävling utan tidsstämpel får en och gallras sedan som andra', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-odaterad-'));
+  const fil = path.join(dir, 'competitions.json');
+  // Så som en äldre version kunde ha skrivit den: inget updated, inget datum.
+  fs.writeFileSync(
+    fil,
+    JSON.stringify({
+      1: { info: { name: 'Odaterad tävling', date: '' }, controls: {}, classes: {}, orgs: {}, competitors: { 31: { name: 'Anna Andersson', card: 123456 } } },
+    })
+  );
+
+  let nu = Date.parse('2026-08-06T12:00:00Z');
+  const store = createStore({ dataDir: dir, saveDelayMs: 60000, now: () => nu });
+
+  // Åldern är okänd, så den ska inte kastas direkt – men klockan ska starta.
+  assert.deepEqual(store.purgeExpired(), [], 'okänd ålder får inte betyda "gammal"');
+  assert.ok(store.competitions[1], 'tävlingen ska finnas kvar');
+  assert.ok(
+    store.competitions[1].updated,
+    'utan tidsstämpel gallras tävlingen aldrig – deltagarfältet blir kvar för alltid'
+  );
+
+  // 91 dagar senare är den lika gammal som vilken annan tävling som helst
+  nu += 91 * 24 * 60 * 60 * 1000;
+  assert.deepEqual(store.purgeExpired(), [1]);
+  assert.equal(store.competitions[1], undefined);
+});
+
+test('en oläsbar tidsstämpel behandlas likadant', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-trasigdatum-'));
+  fs.writeFileSync(
+    path.join(dir, 'competitions.json'),
+    JSON.stringify({ 1: { info: { name: 'T', date: 'inte-ett-datum' }, updated: 'inte-heller', controls: {}, classes: {}, orgs: {}, competitors: {} } })
+  );
+  let nu = Date.parse('2026-08-06T12:00:00Z');
+  const store = createStore({ dataDir: dir, saveDelayMs: 60000, now: () => nu });
+  store.purgeExpired();
+  nu += 91 * 24 * 60 * 60 * 1000;
+  assert.deepEqual(store.purgeExpired(), [1], 'en trasig tidsstämpel gav evigt liv');
+});
