@@ -130,6 +130,16 @@ Given(
   }
 );
 
+// Samma löpare-id (31) som i tävling 1, men en annan tävling. Så ser
+// verkligheten ut: MeOS id:n är per tävling och återanvänds (KRAV-6).
+Given(
+  'att MeOS har skickat en senare tävling med tävlings-id {int} och namnet {string}',
+  async function (cmp, name) {
+    const xml = MOP_COMPLETE.replace('Testtävlingen', name).replace('2026-08-06', '2026-09-01');
+    assert.equal(await postMop(this, xml, { competition: String(cmp) }), 'OK');
+  }
+);
+
 Given('att MeOS har skickat en tävling med {int} löpare', async function (n) {
   assert.equal(await postMop(this, mopCompleteManyRunners(n), { competition: '3' }), 'OK');
 });
@@ -212,6 +222,15 @@ When(
 
 When('jag hämtar kvittot för bricka {int}', async function (card) {
   await getJson(this, `/api/receipt?card=${card}`);
+});
+
+// KRAV-6: så här ser en sparad eller delad länk ut – tävling plus löpar-id.
+When('jag hämtar kvittot i tävling {int} för löparen {int}', async function (cmp, id) {
+  await getJson(this, `/api/receipt?cmp=${cmp}&id=${id}`);
+});
+
+When('jag hämtar kvittot i tävling {int} för bricka {int}', async function (cmp, card) {
+  await getJson(this, `/api/receipt?cmp=${cmp}&card=${card}`);
 });
 
 When('jag laddar ner kvittot som PDF för bricka {int}', async function (card) {
@@ -332,6 +351,24 @@ Then('mejlet har en PDF-bilaga', function () {
 
 Then('mejlets ämne innehåller {string}', function (text) {
   assert.ok(this.sent[0].subject.includes(text), `ämnet var: ${this.sent[0].subject}`);
+});
+
+Then('innehåller mejlets text {string}', function (text) {
+  assert.ok(
+    this.sent[0].text.includes(text),
+    `texten saknar "${text}":\n${this.sent[0].text}`
+  );
+});
+
+Then('innehåller mejlets text inte {string}', function (text) {
+  assert.ok(
+    !this.sent[0].text.includes(text),
+    `texten skulle inte innehålla "${text}":\n${this.sent[0].text}`
+  );
+});
+
+Then('nämner felmeddelandet tävling {int}', function (cmp) {
+  assert.match(this.res.body.error, new RegExp(String(cmp)), this.res.body.error);
 });
 
 Then('skickas inga mejl', function () {

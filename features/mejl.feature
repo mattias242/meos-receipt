@@ -17,6 +17,20 @@ Egenskap: Kvitto via e-post
     Och mejlet har en PDF-bilaga
     Och mejlets ämne innehåller "Anna Andersson"
 
+  # KRAV-16: sammanfattningen är det som syns i förhandsvisningen på
+  # låsskärmen, så den får inte läsa som ett fastställt resultat
+  Scenario: Ett preliminärt resultat märks ut i mejlet
+    Givet att MeOS har skickat en diff där "Carl Carlsson" går i mål
+    När jag mejlar kvittot för bricka 111111 till "loparen@example.org"
+    Så blir mejlsvaret 200
+    Och innehåller mejlets text "Preliminärt resultat"
+    Och innehåller mejlets text "Prel. placering"
+
+  Scenario: Ett fastställt resultat mejlas utan förbehåll
+    När jag mejlar kvittot för bricka 123456 till "loparen@example.org"
+    Så blir mejlsvaret 200
+    Och innehåller mejlets text inte "Preliminärt"
+
   Scenario: Ogiltig adress avvisas utan utskick
     När jag mejlar kvittot för bricka 123456 till "inte-en-adress"
     Så blir mejlsvaret 400

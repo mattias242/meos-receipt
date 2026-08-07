@@ -32,6 +32,20 @@ Egenskap: Sökning på namn och bricka
     Så visar kvittot löparen "Anna Andersson" i klubben "OK Skogen" och klassen "H21"
     Och kvittot gäller tävlingen "Testtävlingen"
 
+  # KRAV-6: löpar-id är MeOS interna och återanvänds mellan tävlingar. Kvittot
+  # skriver ?cmp=N&id=M i adressfältet och "Dela kvittot" delar den länken, så
+  # ett uppslag som faller tillbaka på senaste tävlingen visar en främling.
+  Scenario: Länk till en tävling som inte finns visar inte någon annans kvitto
+    Givet att MeOS har skickat en senare tävling med tävlings-id 2 och namnet "Höstserien"
+    När jag hämtar kvittot i tävling 99 för löparen 31
+    Så blir svaret 404 med ett felmeddelande
+    Och nämner felmeddelandet tävling 99
+
+  # KRAV-6: för en bricka gäller motsatsen – brickan identifierar personen
+  Scenario: Bricka söks vidare även när den angivna tävlingen är borta
+    När jag hämtar kvittot i tävling 99 för bricka 123456
+    Så visar kvittot löparen "Anna Andersson" i klubben "OK Skogen" och klassen "H21"
+
   # KRAV-6
   Scenario: Namnsökning träffar även äldre tävlingar
     Givet att MeOS har skickat en komplett tävling med tävlings-id 2, namnet "Nyare tävlingen" och datumet "2026-09-01" utan löpare
