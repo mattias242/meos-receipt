@@ -425,7 +425,16 @@ test('löpare utan klubb tas emot', () => {
   assert.equal(r.result.time, '10:00');
 });
 
-test('löpare utan namn ger ändå ett kvitto som går att känna igen', () => {
+/**
+ * KRAV-5 har ett pris här, och det ska stå skrivet.
+ *
+ * Bricknumret var förut det enda igenkänningstecknet för en löpare som saknar
+ * namn i resultatfilen. Sedan numret aldrig lämnar tjänsten går ett sådant
+ * kvitto inte att knyta till en person via en delad länk. Den som själv söker
+ * på sin bricka får kvittot direkt och vet därför att det är sitt – det är den
+ * vanliga vägen, och den fungerar. Resultatet visas oavsett.
+ */
+test('löpare utan namn får ett kvitto, men inget bricknummer att känna igen det på', () => {
   const store = createStore();
   applyIof(store, 1, minimalResultList(
     '<PersonResult><Person></Person>' +
@@ -434,7 +443,8 @@ test('löpare utan namn ger ändå ett kvitto som går att känna igen', () => {
   const id = Number(Object.keys(store.competitions[1].competitors)[0]);
   const r = buildReceipt(store.competitions[1], 1, id);
   assert.equal(r.runner.name, '');
-  assert.equal(r.runner.card, 333, 'bricknumret gör att löparen ändå hittar rätt kvitto');
+  assert.equal(r.runner.card, undefined, 'bricknumret lämnar aldrig tjänsten');
+  assert.equal(r.result.time, '10:00', 'resultatet visas ändå');
 });
 
 test('löpare utan status behandlas som utan resultat', () => {

@@ -213,7 +213,8 @@ test('search by name and unknown card gives 404', async (t) => {
   const hits = await (await fetch(`${base}/api/search?q=anna`)).json();
   assert.equal(hits.length, 1);
   assert.equal(hits[0].name, 'Anna Andersson');
-  assert.equal(hits[0].card, 123456);
+  // KRAV-5: träfflistan identifierar på namn och klubb, aldrig på bricknumret
+  assert.equal(hits[0].card, undefined);
 
   const res = await fetch(`${base}/api/receipt?card=999999`);
   assert.equal(res.status, 404);

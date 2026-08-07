@@ -68,11 +68,12 @@ test('samma svar som förut: namn, klubb, klass, status och ordning', () => {
     hits.map((h) => h.name),
     ['Löpare 1 Efternamn', ...Array.from({ length: 10 }, (_, i) => `Löpare 1${i} Efternamn`)]
   );
+  // KRAV-5: bricknumret finns inte med – namn och klubb räcker för att
+  // känna igen sig, och numret följer samma person mellan tävlingar.
   assert.deepEqual(hits[0], {
     id: 1,
     cmp: 7,
     name: 'Löpare 1 Efternamn',
-    card: 100001,
     club: 'OK Skogen',
     class: 'H21',
     statusText: 'Godkänd',

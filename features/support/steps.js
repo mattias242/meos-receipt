@@ -328,6 +328,11 @@ Then('PDF:en innehåller texten {string}', function (text) {
   assert.ok(content.includes(text), `"${text}" saknas i PDF-texten:\n${content}`);
 });
 
+Then('PDF:en innehåller inte texten {string}', function (text) {
+  const content = pdfText(this.pdf.body);
+  assert.ok(!content.includes(text), `"${text}" skulle inte finnas i PDF-texten:\n${content}`);
+});
+
 Then('blir PDF-svaret {int}', function (code) {
   assert.equal(this.pdf.status, code);
 });
@@ -540,15 +545,25 @@ Then(/^får jag (\d+) träff(?:ar)?$/, function (n) {
 });
 
 Then(
-  'träffen visar {string} i klubben {string} och klassen {string} med bricka {int}',
-  function (name, club, cls, card) {
+  'träffen visar {string} i klubben {string} och klassen {string}',
+  function (name, club, cls) {
     const hit = this.res.body[0];
     assert.equal(hit.name, name);
     assert.equal(hit.club, club);
     assert.equal(hit.class, cls);
-    assert.equal(hit.card, card);
   }
 );
+
+// KRAV-5: numret ska inte finnas någonstans i svaret, oavsett fältnamn
+Then('innehåller träffen inget bricknummer', function () {
+  const rå = JSON.stringify(this.res.body);
+  assert.doesNotMatch(rå, /123456/, `bricknumret lämnades ut: ${rå}`);
+});
+
+Then('innehåller kvittot inget bricknummer', function () {
+  const rå = JSON.stringify(this.res.body);
+  assert.doesNotMatch(rå, /123456/, `bricknumret lämnades ut: ${rå}`);
+});
 
 Then(
   'innehåller kvittot för bricka {int} stämplingarna {string}',

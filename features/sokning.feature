@@ -12,7 +12,19 @@ Egenskap: Sökning på namn och bricka
   Scenario: Sökning på namn är skiftlägesokänslig
     När jag söker på "anna"
     Så får jag 1 träff
-    Och träffen visar "Anna Andersson" i klubben "OK Skogen" och klassen "H21" med bricka 123456
+    Och träffen visar "Anna Andersson" i klubben "OK Skogen" och klassen "H21"
+
+  # KRAV-5: numret används för att slå upp, men lämnas aldrig ut
+  Scenario: Sökning på bricknummer fungerar men numret lämnas inte ut
+    När jag söker på "123456"
+    Så får jag 1 träff
+    Och träffen visar "Anna Andersson" i klubben "OK Skogen" och klassen "H21"
+    Och innehåller träffen inget bricknummer
+
+  Scenario: Kvittot visar namn och klubb men inte bricknumret
+    När jag hämtar kvittot för bricka 123456
+    Så visar kvittot löparen "Anna Andersson" i klubben "OK Skogen" och klassen "H21"
+    Och innehåller kvittot inget bricknummer
 
   Scenario: Sökning utan träff
     När jag söker på "Zebror"

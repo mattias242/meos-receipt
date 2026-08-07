@@ -10,6 +10,13 @@ Egenskap: Kvitto som PDF
     Och att MeOS har skickat en komplett tävling med tävlings-id 1
     Och att resultatautomaten har laddat upp en resultatfil
 
+  # KRAV-5: bricknumret lämnas inte ut, inte heller i den PDF löparen mejlar
+  Scenario: PDF-kvittot visar inte bricknumret
+    När jag laddar ner kvittot som PDF för bricka 123456
+    Så får jag en PDF-fil
+    Och PDF:en innehåller texten "Anna Andersson"
+    Och PDF:en innehåller inte texten "123456"
+
   Scenario: Godkänt kvitto som PDF
     När jag laddar ner kvittot som PDF för bricka 123456
     Så får jag en PDF-fil

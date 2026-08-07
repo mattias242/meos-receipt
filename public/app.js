@@ -119,7 +119,6 @@ function renderReceipt(r) {
     <div class="runnerMeta">
       ${esc(r.runner.club)}${r.runner.team ? ' · ' + esc(r.runner.team) : ''}<br />
       Klass: ${esc(r.runner.class)}${r.runner.bib ? ' · Nr ' + esc(r.runner.bib) : ''}
-      ${r.runner.card ? ' · Bricka ' + esc(r.runner.card) : ''}
     </div>
     <hr />
     ${res.time ? `<div class="bigTime">${esc(res.time)}</div>` : ''}
@@ -223,7 +222,7 @@ function renderHits(hits) {
     .map(
       (h) => `<li><button type="button" data-cmp="${h.cmp}" data-id="${h.id}">
         <strong>${esc(h.name)}</strong>
-        <span class="meta">${esc(h.club)} · ${esc(h.class)}${h.card ? ' · Bricka ' + esc(h.card) : ''}</span>
+        <span class="meta">${esc(h.club)} · ${esc(h.class)}</span>
       </button></li>`
     )
     .join('');
