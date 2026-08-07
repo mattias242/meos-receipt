@@ -6,6 +6,9 @@ const hitsEl = document.getElementById('hits');
 const receiptEl = document.getElementById('receipt');
 
 let refreshTimer = null;
+// Sant medan ett mejlutskick är på väg. Kvittot får inte ritas om då: noderna
+// byts ut och svaret skulle hamna på ett formulär som inte längre syns.
+let mejlPågår = false;
 let current = null; // {cmp, id} of the shown receipt
 let mailEnabled = false; // sätts från /api/health (KRAV-16)
 
@@ -101,6 +104,13 @@ function renderReceipt(r) {
       ? `<div class="place">Prel. placering: <strong>${res.prelPlace}</strong> av ${res.finished} i mål</div>`
       : '';
 
+  // Kvittot ritas om var 15:e sekund. Att skriva en e-postadress på en mobil
+  // tar lätt längre än så, och adressen ligger i en nod som byts ut. Detsamma
+  // gäller beskedet efter ett utskick: utan detta försvann "Kvittot är
+  // skickat" vid nästa uppdatering, medan löparen fortfarande tittade på det.
+  const påbörjadAdress = document.getElementById('mailTo')?.value || '';
+  const tidigareMejlbesked = document.getElementById('mailStatus')?.textContent || '';
+
   receiptEl.innerHTML = `
     <div class="cmpName">${esc(r.competition.name)}</div>
     <div class="cmpMeta">${esc(r.competition.date)}${r.competition.organizer ? ' · ' + esc(r.competition.organizer) : ''}</div>
@@ -155,6 +165,11 @@ function renderReceipt(r) {
   const mailForm = document.getElementById('mailForm');
   const mailStatus = document.getElementById('mailStatus');
   if (mailEnabled) mailForm.hidden = false;
+  if (påbörjadAdress) document.getElementById('mailTo').value = påbörjadAdress;
+  if (tidigareMejlbesked) {
+    mailStatus.textContent = tidigareMejlbesked;
+    mailStatus.hidden = false;
+  }
 
   mailForm.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -167,21 +182,26 @@ function renderReceipt(r) {
     };
 
     btn.disabled = true;
+    mejlPågår = true;
     setStatus('Skickar…', false);
-    const res = await anrop('api/receipt/email', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ cmp: r.competition.id, id: r.runner.id, email }),
-    });
-    if (res.offline) {
-      setStatus('Ingen kontakt med tjänsten. Försök igen.', true);
-    } else if (res.ok) {
-      setStatus(`Kvittot är skickat till ${email}.`, false);
-      mailForm.reset();
-    } else {
-      setStatus(res.data.error || 'Kunde inte skicka kvittot.', true);
+    try {
+      const res = await anrop('api/receipt/email', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ cmp: r.competition.id, id: r.runner.id, email }),
+      });
+      if (res.offline) {
+        setStatus('Ingen kontakt med tjänsten. Försök igen.', true);
+      } else if (res.ok) {
+        setStatus(`Kvittot är skickat till ${email}.`, false);
+        mailForm.reset();
+      } else {
+        setStatus(res.data.error || 'Kunde inte skicka kvittot.', true);
+      }
+    } finally {
+      mejlPågår = false;
+      btn.disabled = false;
     }
-    btn.disabled = false;
   });
 
   document.getElementById('shareBtn').addEventListener('click', async () => {
@@ -291,7 +311,10 @@ async function loadReceipt(params, { silent = false } = {}) {
   }
   showMessage('');
   hitsEl.hidden = true;
-  renderReceipt(data);
+  // Ett pågående utskick håller kvar formuläret: ritas kvittot om byts noderna
+  // ut, och svaret skrivs till ett formulär som inte längre sitter på sidan.
+  // Löparen ser då ingenting hända och trycker igen – på ett tak om fem.
+  if (!(silent && mejlPågår)) renderReceipt(data);
   current = { cmp: data.competition.id, id: data.runner.id };
 
   history.replaceState(null, '', `?cmp=${current.cmp}&id=${current.id}`);

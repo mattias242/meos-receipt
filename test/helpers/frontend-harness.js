@@ -25,18 +25,50 @@ const APP = path.join(
   'app.js'
 );
 
-/** Ett DOM-element så långt app.js rör vid det. */
-function element(id) {
-  return {
+/**
+ * Ett DOM-element så långt app.js rör vid det.
+ *
+ * `onNyHtml` anropas när innerHTML skrivs om. Webbläsaren skapar då nya noder
+ * för allt som låg i elementet, och den kod som redan hämtat de gamla håller
+ * kvar dem – frånkopplade och osynliga. Utan att härma det skulle testet inte
+ * kunna se skillnad på "skriver till sidan" och "skriver till ett lik".
+ */
+function element(id, onNyHtml) {
+  let html = '';
+  const el = {
     id,
     textContent: '',
-    innerHTML: '',
+    get innerHTML() {
+      return html;
+    },
+    set innerHTML(v) {
+      html = v;
+      onNyHtml?.(v);
+    },
     value: '',
     hidden: false,
     dataset: {},
+    klasser: new Set(),
+    classList: {
+      toggle(namn, på) {
+        if (på) this.ägare.klasser.add(namn);
+        else this.ägare.klasser.delete(namn);
+      },
+    },
+    reset() {
+      this.value = '';
+    },
     lyssnare: {},
     addEventListener(typ, fn) {
       (this.lyssnare[typ] ||= []).push(fn);
+    },
+    /** Så mycket av sökningen som app.js behöver: en stabil stub per väljare. */
+    querySelector(väljare) {
+      this.barn ||= {};
+      return (this.barn[väljare] ||= element(`${id}>${väljare}`));
+    },
+    closest() {
+      return null;
     },
     /** Utlöser en händelse som om användaren gjort något. */
     utlös(typ, händelse = {}) {
@@ -44,6 +76,8 @@ function element(id) {
       return Promise.all((this.lyssnare[typ] || []).map((fn) => fn(e)));
     },
   };
+  el.classList.ägare = el;
+  return el;
 }
 
 /** Virtuell klocka: inget händer förrän testet flyttar fram tiden. */
@@ -102,7 +136,17 @@ function klocka() {
 export function laddaSidan({ svar = () => ({ status: 200, body: {} }), search = '' } = {}) {
   const el = new Map();
   const hämta = (id) => {
-    if (!el.has(id)) el.set(id, element(id));
+    if (!el.has(id)) {
+      el.set(
+        id,
+        element(id, (html) => {
+          // Allt som låg inuti ersattes av nya noder. Släpp de gamla, så att
+          // en hämtning efteråt ger den nya – och en gammal referens fortsätter
+          // peka på den frånkopplade, precis som i webbläsaren.
+          for (const m of html.matchAll(/\bid="([^"]+)"/g)) el.delete(m[1]);
+        })
+      );
+    }
     return el.get(id);
   };
   // Sidan läser dessa vid start; de måste finnas innan koden körs.

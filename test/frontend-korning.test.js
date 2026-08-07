@@ -245,3 +245,71 @@ test('id:n i PDF-länken kan inte bryta ut ur attributet', async () => {
     `id:t bröt ut ur href-attributet:\n${html}`
   );
 });
+
+/**
+ * KRAV-16/KRAV-17: mejlformuläret ligger inuti kvittot, och kvittot ritas om
+ * vid varje automatisk uppdatering – var 15:e sekund så länge resultatet inte
+ * är klart. Webbläsaren skapar då nya noder för formuläret.
+ *
+ * Två följder: adressen löparen håller på att skriva försvinner (att skriva
+ * en e-postadress på en mobil tar lätt mer än 15 sekunder), och ett utskick
+ * som är på väg skriver sitt svar till noder som inte längre sitter på sidan.
+ * Löparen ser då ingenting hända och trycker igen – på ett tak om fem.
+ */
+function sidaMedMejl({ svarPåUtskick } = {}) {
+  const kvitto = {
+    competition: { id: 1, name: 'Testtävlingen', date: '2026-08-06', organizer: '' },
+    runner: { id: 31, name: 'Anna Andersson', club: 'OK Skogen', class: 'H21', card: 123456, bib: '', team: '' },
+    // Inte slutgiltigt – alltså fortsätter den automatiska uppdateringen
+    result: { status: 0, statusText: 'Ute på banan', preliminary: false, startTime: '10:00:00', finishTime: '', time: '', place: null, prelPlace: null, finished: 1, total: 3, after: '', teamTime: '' },
+    splits: [],
+    updated: '2026-08-06T14:42:36.625Z',
+    updatedAgeSeconds: 3,
+  };
+  return laddaSidan({
+    search: '?cmp=1&id=31',
+    svar: (url, opts, tid) => {
+      if (url.includes('/health')) return { status: 200, body: { email: true } };
+      if (url.includes('/competitions')) return { status: 200, body: [] };
+      if (url.includes('/email')) return svarPåUtskick(tid);
+      return { status: 200, body: kvitto };
+    },
+  });
+}
+
+test('adressen löparen skriver överlever en automatisk uppdatering', async () => {
+  const sida = sidaMedMejl({ svarPåUtskick: () => ({ status: 200, body: { ok: true } }) });
+  await sida.tick(10);
+
+  sida.el('mailTo').value = 'loparen@example.org';
+  await sida.tick(16000); // ett uppdateringsvarv
+
+  assert.equal(
+    sida.el('mailTo').value,
+    'loparen@example.org',
+    'adressen försvann mitt i skrivandet när kvittot ritades om'
+  );
+});
+
+test('ett pågående utskick får sitt besked på den synliga sidan', async () => {
+  const sida = sidaMedMejl({
+    // Utskicket tar 20 s – längre än uppdateringsintervallet
+    svarPåUtskick: (tid) =>
+      new Promise((klar) => tid.setTimeout(() => klar({ status: 200, body: { ok: true } }), 20000)),
+  });
+  await sida.tick(10);
+
+  sida.el('mailTo').value = 'loparen@example.org';
+  // Utskicket blir inte klart förrän klockan flyttas fram, så det får inte
+  // väntas ut här – det är hela poängen att uppdateringen löper under tiden.
+  const utskick = sida.el('mailForm').utlös('submit');
+  await sida.tick(30000);
+  await utskick;
+
+  assert.match(
+    sida.el('mailStatus').textContent,
+    /skickat/i,
+    'kvittot ritades om under utskicket, så beskedet hamnade på en frånkopplad ' +
+      'nod – löparen ser ingenting hända och trycker igen'
+  );
+});
