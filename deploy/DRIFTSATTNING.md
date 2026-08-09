@@ -98,7 +98,7 @@ uppdateringar — kör då det här steget igen.
 tools/verifiera-drift.sh https://meos-kvitto.neomeda.eu
 ```
 
-Elva kontroller: att tjänsten svarar, att data når disken, att
+Nio kontroller: att tjänsten svarar, att data når disken, att
 skrivändpunkterna kräver lösenord, att kvitton inte får cachas, att
 proxyinställningen stämmer, och att kvitto och PDF fungerar.
 

@@ -69,6 +69,10 @@ exekverbara Gherkin-scenarier (svenska) i [`features/`](features/). Ett krav
 
 ## Konfigurera MeOS
 
+> Steg-för-steg för tävlingsdagen, med den driftsatta adressen ifylld:
+> [`docs/konfigurera-meos.md`](docs/konfigurera-meos.md). Avsnitten nedan är
+> referensen.
+
 I MeOS: **Tävling → Onlineresultat** (automatisk publicering):
 
 | Inställning | Värde |
