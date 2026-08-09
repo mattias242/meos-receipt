@@ -53,17 +53,32 @@ export function createApp({
   // första, mitt under tävlingen. Men tjänsten kan se det själv: kommer
   // anropen med X-Forwarded-For står det en proxy där framme.
   let proxyvarning = null;
-  // Minsta antal led som rapporterats i X-Forwarded-For. En klient kan fylla
-  // på headern med egna led, så det *högsta* talet säger ingenting – men
-  // ingen kan ta bort infrastrukturens egna. Det minsta observerade är därför
-  // antalet verkliga hopp, och det TRUST_PROXY ska vara.
+  /**
+   * Hur många led som rapporteras i X-Forwarded-For, räknat per antal.
+   *
+   * Det *vanligaste* antalet är svaret, inte det minsta eller det högsta.
+   * Tjänsten nås både via Cloudflare (två led) och direkt mot origin-adressen
+   * (ett led), och en klient kan dessutom fylla på headern med egna. Med
+   * minimum räckte ett enda direktanrop för att tysta varningen om
+   * inställningen var för låg – skyddsnätet gick alltså att stänga av
+   * utifrån. Med maximum räckte ett påhittat led för att framkalla en falsk.
+   * Verklig trafik dominerar, och därför håller det vanligaste.
+   */
+  const hoppRakning = new Map();
   let proxyhopp = null;
 
   app.use((req, res, next) => {
     const rå = req.get('x-forwarded-for');
     if (rå) {
       const led = rå.split(',').filter((d) => d.trim()).length;
-      if (proxyhopp === null || led < proxyhopp) proxyhopp = led;
+      hoppRakning.set(led, (hoppRakning.get(led) || 0) + 1);
+      // Lika ofta förekommande: välj det högre. Hellre en varning att
+      // undersöka än ett tyst fel som märks först när ingen kan mejla.
+      proxyhopp = [...hoppRakning.entries()].reduce(
+        (bäst, [antalLed, gånger]) =>
+          gånger > bäst[1] || (gånger === bäst[1] && antalLed > bäst[0]) ? [antalLed, gånger] : bäst,
+        [0, -1]
+      )[0];
 
       // Bakom Cloudflare *och* nginx är det två led. Med TRUST_PROXY=1 blir
       // löparens adress i stället Cloudflares – gemensam för alla – och

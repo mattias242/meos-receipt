@@ -76,8 +76,18 @@ grep '^MEOS_PASSWORD=' /volume2/web/meos-kvitto/.env | cut -d= -f2-
 
 ```bash
 sudo cp deploy/http.meos-kvitto.neomeda.eu.conf /etc/nginx/conf.d/
-sudo nginx -t && sudo synosystemctl restart nginx
+sudo chmod 755 /etc/nginx/conf.d/http.meos-kvitto.neomeda.eu.conf
+sudo nginx -t && sudo nginx -s reload
 ```
+
+**Använd `nginx -s reload`, inte `synosystemctl restart nginx`.** Det senare går
+via Synologys tjänstehanterare, hänger, och tar ner containrar på vägen — här
+stoppades både `ntfy` och `meos-kvitto`, och med `restart: unless-stopped`
+startade de inte om av sig själva. `-s reload` skickar SIGHUP direkt till nginx
+master: inga avbrott, ingen kaskad.
+
+`cp` kan lämna filen med läge `000`; nginx kör som root och läser den ändå, men
+`nginx -t` som annan användare gör det inte. Därav `chmod`.
 
 DSM kan skriva över egna filer i `/etc/nginx/conf.d/` vid större
 uppdateringar — kör då det här steget igen.

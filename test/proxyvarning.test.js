@@ -127,17 +127,63 @@ test('rätt inställning varnar inte', async (t) => {
 });
 
 /**
- * En klient kan fylla på headern med egna led. Räknades det högsta talet
- * skulle vem som helst kunna få tjänsten att varna – eller värre, få en
- * arrangör att höja TRUST_PROXY och därmed börja lita på klientens påhitt.
+ * Står två antal lika ofta väljs det högre, alltså det som kan ge en varning.
+ *
+ * De två felen är inte lika allvarliga. En varning för mycket kostar att
+ * någon undersöker och inte hittar något. En varning för lite betyder att en
+ * felaktig inställning aldrig upptäcks, och det märks först när en löpare
+ * säger att hon inte kan mejla sitt kvitto – mitt under tävlingen.
+ *
+ * Med verklig trafik uppstår läget inte: den dominerar. Testet nedan visar
+ * regeln i sitt renaste fall, ett anrop av varje sort.
  */
-test('påhittade led i headern höjer inte det rapporterade antalet', async (t) => {
+test('vid lika många väljs det antal som kan ge en varning', async (t) => {
   const { server, base } = await startServer({ trustProxy: 2 });
   t.after(() => server.close());
 
   await medHopp(base, '198.51.100.7', '203.0.113.1');
   await medHopp(base, 'påhittad-1', 'påhittad-2', '198.51.100.7', '203.0.113.1');
+  assert.equal((await hälsa(base)).proxyhopp, 4);
+});
+
+/**
+ * Det minsta observerade antalet led höll inte.
+ *
+ * Tjänsten nås både via Cloudflare (två led) och direkt mot origin-adressen,
+ * som vem som helst kan slå upp – och ett sådant anrop har bara nginx led.
+ * Med minimum sänkte ett enda direktanrop siffran till 1, och då tystnade
+ * varningen om TRUST_PROXY var för lågt satt. Skyddsnätet gick alltså att
+ * stänga av utifrån. Upptäcktes i drift, av mina egna kontrollanrop.
+ *
+ * Det vanligaste antalet är robust åt båda hållen: enstaka direktanrop drar
+ * inte ner det, och enstaka påhittade led drar inte upp det.
+ */
+test('enstaka direktanrop mot origin döljer inte en felaktig inställning', async (t) => {
+  const { server, base } = await startServer({ trustProxy: 1 });
+  t.after(() => server.close());
+
+  // Verklig trafik genom Cloudflare + nginx: två led
+  for (let i = 0; i < 5; i++) await medHopp(base, '198.51.100.7', '203.0.113.1');
+  // Ett direktanrop mot origin: bara nginx led
+  await medHopp(base, '203.0.113.1');
+
   const h = await hälsa(base);
-  assert.equal(h.proxyhopp, 2, 'det minsta observerade är infrastrukturens egna led');
+  assert.equal(h.proxyhopp, 2, `direktanropet drog ner siffran: ${JSON.stringify(h)}`);
+  assert.match(
+    String(h.proxyvarning),
+    /TRUST_PROXY till 2/,
+    'varningen ska stå kvar – annars går skyddsnätet att stänga av utifrån'
+  );
+});
+
+test('enstaka påhittade led drar inte upp siffran', async (t) => {
+  const { server, base } = await startServer({ trustProxy: 2 });
+  t.after(() => server.close());
+
+  for (let i = 0; i < 5; i++) await medHopp(base, '198.51.100.7', '203.0.113.1');
+  await medHopp(base, 'p1', 'p2', 'p3', '198.51.100.7', '203.0.113.1');
+
+  const h = await hälsa(base);
+  assert.equal(h.proxyhopp, 2);
   assert.equal(h.proxyvarning, undefined, 'och det ska inte gå att framkalla en varning');
 });
