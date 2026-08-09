@@ -1,6 +1,7 @@
-# nginx-vhost för meos-kvitto.neomeda.eu (DSM-nginx på NAS:en)
+# nginx-vhost, mall. Byt <värdnamn> mot tjänstens värdnamn och spara som
+# http.<värdnamn>.conf.
 #
-# Följer samma mönster som http.notify.neomeda.eu.conf: filen bor i projektet
+# Följer samma mönster som de vhostfiler som redan finns där: filen bor i projektet
 # och installeras till /etc/nginx/conf.d/. DSM kan skriva över egna filer där
 # vid större uppdateringar – kör då installationssteget igen (se
 # DRIFTSATTNING.md).
@@ -11,7 +12,7 @@
 
 server {
     listen 80;
-    server_name meos-kvitto.neomeda.eu;
+    server_name <värdnamn>;
 
     location / {
         proxy_pass http://127.0.0.1:3459;
@@ -37,9 +38,9 @@ server {
 
 server {
     listen 443 ssl;
-    server_name meos-kvitto.neomeda.eu;
+    server_name <värdnamn>;
 
-    # Självsignerat origin-cert med SAN *.neomeda.eu, som övriga värdnamn.
+    # Självsignerat origin-cert med SAN som täcker värdnamnet, som övriga värdnamn.
     # Fungerar eftersom Cloudflare står i SSL-läge "Full" – aldrig
     # "Full (strict)", som kräver ett certifikat Cloudflare litar på.
     ssl_certificate     /etc/ssl/certs/nas-origin.pem;

@@ -1,14 +1,17 @@
-# Driftsättning: meos-kvitto.neomeda.eu
+# Driftsättning på Synology-NAS bakom Cloudflare
+
+Mall. Byt `<värdnamn>`, `<användare>` och `<nas-adress>` mot dina egna
+värden — de hör hemma i din egen anteckning, inte i ett publikt repo.
 
 Kedjan är **Cloudflare → DSM-nginx på NAS:en → containern**. Uppsättningen
-följer mönstret från `notify.neomeda.eu`: vhosten bor i projektet och
+följer mönstret från `ett befintligt värdnamn`: vhosten bor i projektet och
 installeras till `/etc/nginx/conf.d/`.
 
 ```mermaid
 flowchart LR
   K["Löparens mobil"] --> CF["Cloudflare<br/>SSL-läge Full"]
   MEOS["MeOS på tävlingsdatorn"] --> CF
-  CF --> NG["DSM-nginx<br/>http.meos-kvitto.neomeda.eu.conf"]
+  CF --> NG["DSM-nginx<br/>http.<värdnamn>.conf"]
   NG --> APP["container meos-kvitto<br/>127.0.0.1:3459"]
   APP --> VOL[("/volume2/web/meos-kvitto/data")]
 ```
@@ -18,23 +21,23 @@ Avläst på NAS:en, inte antaget:
 | | |
 | --- | --- |
 | Värdport | **3459** (ledig; youmewe ligger på 3456) |
-| Origin-certifikat | `/etc/ssl/certs/nas-origin.pem`, SAN `*.neomeda.eu` — självsignerat |
+| Origin-certifikat | `/etc/ssl/certs/nas-origin.pem`, SAN en SAN som täcker värdnamnet — självsignerat |
 | Cloudflare SSL-läge | **Full**, aldrig *Full (strict)* — certifikatet är självsignerat |
 | `client_max_body_size` | redan `0` globalt i DSM:s nginx; sätts ändå i vhosten |
 | `TRUST_PROXY` | **2** — Cloudflare och nginx bygger båda på `X-Forwarded-For` |
 
 ## 1. DNS
 
-`meos-kvitto.neomeda.eu` saknar post. Lägg till den i Cloudflare, proxad
-(orange moln), som övriga värdnamn under `neomeda.eu`.
+`<värdnamn>` saknar post. Lägg till den i Cloudflare, proxad
+(orange moln), som övriga värdnamn i zonen.
 
 ## 2. Lägg upp projektet
 
 ```bash
 # från arbetskatalogen
 git archive --format=tar HEAD | gzip > /tmp/meos-kvitto.tgz
-scp -O /tmp/meos-kvitto.tgz mattiaswahlberg@192.168.1.110:/volume2/web/
-ssh mattiaswahlberg@192.168.1.110 '
+scp -O /tmp/meos-kvitto.tgz <användare>@<nas-adress>:/volume2/web/
+ssh <användare>@<nas-adress> '
   mkdir -p /volume2/web/meos-kvitto &&
   tar xzf /volume2/web/meos-kvitto.tgz -C /volume2/web/meos-kvitto'
 ```
@@ -42,7 +45,7 @@ ssh mattiaswahlberg@192.168.1.110 '
 ## 3. Konfigurera och starta
 
 ```bash
-ssh mattiaswahlberg@192.168.1.110
+ssh <användare>@<nas-adress>
 cd /volume2/web/meos-kvitto
 cp deploy/env.exempel .env      # fyll i MEOS_PASSWORD och MAILGUN_PWD
 chmod 600 .env
@@ -75,8 +78,8 @@ grep '^MEOS_PASSWORD=' /volume2/web/meos-kvitto/.env | cut -d= -f2-
 ## 4. Installera vhosten
 
 ```bash
-sudo cp deploy/http.meos-kvitto.neomeda.eu.conf /etc/nginx/conf.d/
-sudo chmod 755 /etc/nginx/conf.d/http.meos-kvitto.neomeda.eu.conf
+sudo cp deploy/http.VARDNAMN.conf.exempel /etc/nginx/conf.d/
+sudo chmod 755 /etc/nginx/conf.d/http.<värdnamn>.conf
 sudo nginx -t && sudo nginx -s reload
 ```
 
@@ -95,7 +98,7 @@ uppdateringar — kör då det här steget igen.
 ## 5. Kontrollera — innan tävlingsdagen
 
 ```bash
-tools/verifiera-drift.sh https://meos-kvitto.neomeda.eu
+tools/verifiera-drift.sh https://<värdnamn>
 ```
 
 Nio kontroller: att tjänsten svarar, att data når disken, att
@@ -119,8 +122,8 @@ siffra finns i `/api/health` som `proxyhopp`.
 
 | | |
 | --- | --- |
-| Onlineresultat | `https://meos-kvitto.neomeda.eu/meos` |
-| Resultatfiler | `https://meos-kvitto.neomeda.eu/iof` |
+| Onlineresultat | `https://<värdnamn>/meos` |
+| Resultatfiler | `https://<värdnamn>/iof` |
 | Lösenord | samma som `MEOS_PASSWORD` |
 
 ## 7. Adressen i PM
@@ -129,7 +132,7 @@ Varje tävling har en egen adress (KRAV-18), att trycka i PM eller sätta som
 QR-kod på arenan:
 
 ```
-https://meos-kvitto.neomeda.eu/t/<tävlings-id>
+https://<värdnamn>/t/<tävlings-id>
 ```
 
 Id:t är detsamma som du sätter i MeOS Onlineresultat. Adressen fungerar innan

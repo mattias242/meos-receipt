@@ -289,9 +289,9 @@ e-postutskicket avstängt: mejlformuläret döljs och endpointen svarar `503`.
 
 ## Deployment
 
-Driftsättningen av **meos-kvitto.neomeda.eu** (NAS bakom Cloudflare) är
-beskriven steg för steg i [`deploy/DRIFTSATTNING.md`](deploy/DRIFTSATTNING.md),
-med vhost och `.env`-mall i samma katalog.
+Driftsättning på en Synology-NAS bakom Cloudflare är beskriven steg för steg i
+[`deploy/DRIFTSATTNING.md`](deploy/DRIFTSATTNING.md), med vhost- och
+`.env`-mall i samma katalog.
  (container på egen NAS/server)
 
 Repots `docker-compose.yml` kör tjänsten i container med persistent

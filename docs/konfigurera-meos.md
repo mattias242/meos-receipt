@@ -1,7 +1,9 @@
 # Konfigurera MeOS mot kvittotjänsten
 
-Guide för dig som sitter vid MeOS-datorn. Tjänsten körs på
-**https://meos-kvitto.neomeda.eu**.
+Guide för dig som sitter vid MeOS-datorn på tävlingsdagen.
+
+Byt ut `https://din-server.example` mot tjänstens adress. Den som driftsatt
+tjänsten vet vilken den är, och vilket lösenord som gäller.
 
 Det finns två inflöden, och de gör olika saker. Kör båda — men det första
 räcker för att komma igång.
@@ -25,7 +27,7 @@ detsamma överallt:
 
 1. MeOS Onlineresultat
 2. Uppladdningsprogrammet för resultatfiler
-3. Adressen i PM: `https://meos-kvitto.neomeda.eu/t/<tävlings-id>`
+3. Adressen i PM: `https://din-server.example/t/<tävlings-id>`
 
 > **Använder de två inflödena olika id blir kvittona fel.** Tjänsten tror då
 > att det är två skilda tävlingar, räknar placeringen på halva deltagarfältet
@@ -34,14 +36,10 @@ detsamma överallt:
 
 Eftersom id:t ingår i PM-adressen behöver du bestämma det innan PM trycks.
 
-### Hämta lösenordet
+### Skaffa lösenordet
 
-Samma lösenord används av båda inflödena:
-
-```bash
-ssh mattiaswahlberg@192.168.1.110 \
-  "grep '^MEOS_PASSWORD=' /volume2/web/meos-kvitto/.env | cut -d= -f2-"
-```
+Samma lösenord används av båda inflödena. Det sattes när tjänsten driftsattes
+— fråga den som gjorde det. Skicka det inte i mejl eller chatt.
 
 ---
 
@@ -51,9 +49,9 @@ ssh mattiaswahlberg@192.168.1.110 \
 
 | Inställning | Värde |
 | --- | --- |
-| URL | `https://meos-kvitto.neomeda.eu/meos` |
+| URL | `https://din-server.example/meos` |
 | Tävlings-id | ditt valda heltal, t.ex. `4` |
-| Lösenord | från kommandot ovan |
+| Lösenord | tjänstens lösenord |
 | Format | MeOS onlineprotokoll (MOP) |
 
 Ställ in **radiokontroller och mellantider** i MeOS om ni har dem — de blir
@@ -62,7 +60,7 @@ sträcktider på kvittot direkt, utan resultatautomaten.
 Kontrollera att det gick fram:
 
 ```bash
-curl -s https://meos-kvitto.neomeda.eu/api/health
+curl -s https://din-server.example/api/health
 ```
 
 `"competitions"` ska ha ökat med ett.
@@ -93,9 +91,9 @@ Kopiera `tools\ladda-upp-resultat.cfg.exempel` till
 
 ```ini
 FIL=C:\meos\resultat.xml
-URL=https://meos-kvitto.neomeda.eu
+URL=https://din-server.example
 CMP=4
-LOSEN=<lösenordet>
+LOSEN=<tjänstens lösenord>
 INTERVALL=10
 ```
 
@@ -116,7 +114,7 @@ uppladdning:
 | `OK` | Uppladdad |
 | `BADPWD` | Fel lösenord — rätta i `.cfg` |
 | `BADCMP` | Tävlings-id saknas eller är noll |
-| `ERROR` | Filen gick inte att tolka — kollar automaten rätt format? |
+| `ERROR` | Filen gick inte att tolka — exporterar automaten rätt format? |
 
 Programmet ger inte upp vid fel. Först när svaret är `OK` räknas filen som
 uppladdad, så ett tillfälligt fel leder till nytt försök i stället för tystnad.
@@ -131,7 +129,7 @@ Var trettionde varv laddas filen upp igen även om den ser oförändrad ut —
 ## Steg 3: Adressen till löparna
 
 ```
-https://meos-kvitto.neomeda.eu/t/<tävlings-id>
+https://din-server.example/t/<tävlings-id>
 ```
 
 Den fungerar redan innan tävlingen börjat — då står det att inga resultat
@@ -150,16 +148,15 @@ söka på, men lämnar aldrig tjänsten.
 ## Prova hela kedjan dagen före
 
 ```bash
-# från arbetskatalogen på din dator
-tools/verifiera-drift.sh https://meos-kvitto.neomeda.eu <ett-bricknummer>
+tools/verifiera-drift.sh https://din-server.example <ett-bricknummer>
 ```
 
 Nio kontroller: att tjänsten svarar, att data når disken, att kvitto och PDF
 fungerar, och att konfigurationen är rätt. Allt ska vara grönt utom eventuella
 varningar du känner igen.
 
-Öppna sedan `https://meos-kvitto.neomeda.eu/t/<tävlings-id>` i mobilen och sök
-upp en löpare. Ser kvittot rätt ut är ni klara.
+Öppna sedan `https://din-server.example/t/<tävlings-id>` i mobilen och sök upp
+en löpare. Ser kvittot rätt ut är ni klara.
 
 ---
 
@@ -191,6 +188,7 @@ Ser du den texten är det Onlineresultat som slutat skicka.
 | En löpare hittar inte sitt kvitto | Sök på namn i stället; delad bricka ger en valbar lista |
 | Kvittot står stilla | Onlineresultat har slutat skicka — se varningen ovan |
 | Mejlformuläret syns inte | E-post är inte påslaget; `/api/health` visar `"email": false` |
+| `413` i MeOS eller uppladdningen | En proxy framför tjänsten stryper kroppsstorleken — säg till den som driftsatt |
 
 Tävlingsdata gallras automatiskt efter 90 dagar.
 
