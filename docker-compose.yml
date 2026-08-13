@@ -13,8 +13,11 @@ services:
     #   networks: [proxy]
     # OBS: sätt client_max_body_size 32m; i nginx för värdnamnet, annars
     # stoppas större MeOS-sändningar (nginx standard är 1 MB).
+    # Värdporten sätts i .env (HOST_PORT), inte här: en driftsättning som
+    # packar upp repot över arbetskatalogen skriver annars tillbaka värdet,
+    # och containern binder sig till fel port medan proxyn pekar på den gamla.
     ports:
-      - "3000:3000"
+      - "${HOST_PORT:-3000}:3000"
     environment:
       MEOS_PASSWORD: ${MEOS_PASSWORD:?Sätt MEOS_PASSWORD, t.ex. i en .env-fil}
       DATA_DIR: /data

@@ -20,7 +20,7 @@ Avläst på NAS:en, inte antaget:
 
 | | |
 | --- | --- |
-| Värdport | **3459** (ledig; youmewe ligger på 3456) |
+| Värdport | **3459** (ledig; youmewe ligger på 3456) – sätts som `HOST_PORT` i `.env` |
 | Origin-certifikat | `/etc/ssl/certs/nas-origin.pem`, SAN en SAN som täcker värdnamnet — självsignerat |
 | Cloudflare SSL-läge | **Full**, aldrig *Full (strict)* — certifikatet är självsignerat |
 | `client_max_body_size` | redan `0` globalt i DSM:s nginx; sätts ändå i vhosten |
@@ -47,9 +47,8 @@ ssh <användare>@<nas-adress> '
 ```bash
 ssh <användare>@<nas-adress>
 cd /volume2/web/meos-kvitto
-cp deploy/env.exempel .env      # fyll i MEOS_PASSWORD och MAILGUN_PWD
+cp deploy/env.exempel .env      # fyll i MEOS_PASSWORD, MAILGUN_PWD och HOST_PORT
 chmod 600 .env
-sed -i 's/"3000:3000"/"3459:3000"/' docker-compose.yml
 
 # Synologys Docker skapar inte bind-monteringens katalog själv – utan den
 # vägrar containern starta med "Bind mount failed".
@@ -138,6 +137,30 @@ https://<värdnamn>/t/<tävlings-id>
 Id:t är detsamma som du sätter i MeOS Onlineresultat. Adressen fungerar innan
 tävlingen börjat — sidan säger då att inga resultat kommit än — så den kan
 tryckas i förväg.
+
+## 8. Uppdatera en driftsatt tjänst
+
+Samma kedja som steg 2, följt av en ombyggnad:
+
+```bash
+git archive --format=tar HEAD | gzip > /tmp/meos-kvitto.tgz
+scp -O /tmp/meos-kvitto.tgz <användare>@<nas-adress>:/volume2/web/
+ssh <användare>@<nas-adress> '
+  cd /volume2/web/meos-kvitto &&
+  tar xzf /volume2/web/meos-kvitto.tgz -C . &&
+  /var/packages/ContainerManager/target/usr/bin/docker compose up -d --build'
+```
+
+**Uppackningen skriver över allt som ligger i repot**, `docker-compose.yml`
+inräknat. Därför får inga driftvärden redigeras in i de filerna — de hör
+hemma i `.env`, som inte finns i repot och alltså ligger kvar. Det var
+`HOST_PORT` som lärde oss det: värdporten stod förr i `docker-compose.yml`,
+återställdes till 3000 vid varje deploy, och containern band då fel port
+medan nginx pekade på den gamla. Utåt blev det 502, medan `docker ps` såg
+fullt friskt ut.
+
+`data/` ligger utanför repot och rörs inte — tävlingsdata överlever en
+uppdatering. Kontrollera efteråt med `tools/verifiera-drift.sh`.
 
 ## Noterat vid driftsättningen
 

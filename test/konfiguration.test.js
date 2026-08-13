@@ -83,6 +83,27 @@ test('.env.example speglar det som behövs för att komma igång', () => {
 });
 
 /**
+ * Värdporten måste gå att sätta utanför de filer en deploy skriver över.
+ *
+ * Driftsättningen packar upp ett `git archive` över arbetskatalogen, så en
+ * handredigerad `docker-compose.yml` återställs vid varje deploy. Stod porten
+ * i filen band containern om sig till 3000 medan nginx fortsatte peka på
+ * värdporten: 502 utåt, medan `docker ps` såg friskt ut. `.env` skrivs
+ * däremot aldrig över.
+ */
+test('värdporten kommer från .env, inte ur docker-compose.yml', () => {
+  const compose = läs('docker-compose.yml');
+  const mappning = compose.match(/^\s*-\s*"([^"]+):3000"/m);
+  assert.ok(mappning, 'portmappningen saknas i docker-compose.yml');
+  assert.match(
+    mappning[1],
+    /^\$\{HOST_PORT/,
+    'en hårdkodad värdport måste redigeras för hand vid varje deploy och tappas då bort'
+  );
+  assert.match(läs('deploy/env.exempel'), /^#?\s*HOST_PORT=/m, 'HOST_PORT saknas i deploy/env.exempel');
+});
+
+/**
  * Containern kör UTC om inget annat sägs. Kvittots tider kommer från
  * MOP-konventionen och är tidszonsoberoende, men "Uppdaterat" formateras med
  * serverns lokala tid – på en UTC-server ser det ut som att kvittot
