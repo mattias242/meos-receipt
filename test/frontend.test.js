@@ -82,6 +82,25 @@ test('sökfältet har en etikett, inte bara en platshållare', () => {
   );
 });
 
+test('sökfältet låser inte mobilens tangentbord till siffror', () => {
+  // KRAV-5: sökningen tar både bricknummer och namn. iOS sifferknappsats har
+  // inga bokstäver alls, så inputmode="numeric" gör namnsökningen omöjlig på
+  // den enda enhet löparen har med sig till arenan. Samma sak för type="tel"
+  // och type="number", som dessutom stryper inledande nollor.
+  const input = HTML.match(/<input[^>]*id="query"[^>]*>/s);
+  assert.ok(input, 'sökfältet saknas');
+  const inputmode = input[0].match(/inputmode="([^"]*)"/);
+  assert.ok(
+    !inputmode || !/^(numeric|tel|decimal)$/.test(inputmode[1]),
+    `inputmode="${inputmode?.[1]}" ger ett tangentbord utan bokstäver`
+  );
+  const typ = input[0].match(/type="([^"]*)"/);
+  assert.ok(
+    !typ || !/^(tel|number)$/.test(typ[1]),
+    `type="${typ?.[1]}" ger ett tangentbord utan bokstäver`
+  );
+});
+
 test('kvitto och meddelanden annonseras när de ändras', () => {
   // Sidan uppdaterar sig själv var 15:e sekund. Utan aria-live får den som
   // använder skärmläsare aldrig veta att resultatet kommit.

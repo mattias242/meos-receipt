@@ -34,7 +34,14 @@
       <!-- Etiketten är dold för synen men läses av skärmläsare. En placeholder
            räcker inte: den läses inkonsekvent och försvinner när man skriver. -->
       <label for="query" class="visuallyHidden">SportIdent-nummer eller namn</label>
-      <input id="query" type="text" inputmode="numeric"
+      <!-- KRAV-17: inget inputmode här. Sökningen tar både bricknummer och
+           namn (KRAV-5), och iOS sifferknappsats saknar bokstäver helt – med
+           inputmode="numeric" gick namnsökningen inte att använda i mobilen.
+           Siffrorna kostar ett tryck på 123-tangenten; bokstäverna gick inte
+           att nå alls. Autokorrigeringen är avstängd: den skriver om
+           efternamn medan man skriver dem. -->
+      <input id="query" type="text" enterkeyhint="search"
+             autocorrect="off" spellcheck="false"
              placeholder="SportIdent-nummer eller namn" required />
       <button type="submit">Visa</button>
     </div>
