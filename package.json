@@ -10,6 +10,7 @@
     "test": "node --test",
     "bdd": "cucumber-js",
     "verify": "npm test && npm run bdd",
+    "build:windows": "node tools/bygg-windowspaket.mjs",
     "build:exe": "node tools/bygg-exe.mjs",
     "build:exe:win": "node tools/bygg-exe.mjs --windows"
   },

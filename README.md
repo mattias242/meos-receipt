@@ -115,6 +115,23 @@ onlinedatat med resultatfiler från MeOS resultatautomat:
    ./tools/ladda-upp-resultat.sh /sökväg/resultat.xml https://din-server.example 1 hemligt
    ```
 
+   **Paketet till MeOS-datorn byggs med ett kommando** i stället för att
+   plockas ihop för hand inför varje tävling:
+
+   ```bash
+   npm run build:windows -- https://din-server.example 4
+   ```
+
+   Kommandot kör `tools/bygg-windowspaket.mjs`.
+   `dist/windows/MeOS-kvitto/` innehåller då uppladdningsskripten, en ifylld
+   `ladda-upp-resultat.cfg`, ett kontrollskript som pingar tjänsten och en
+   LAS-MIG med hela tävlingsdagens gång – kopiera mappen till ett USB-minne.
+   Skripten kopieras oförändrade ur `tools/`, så paketet kan inte drifta isär
+   från källan. Lösenordet fylls aldrig i av bygget: USB-minnet byter händer,
+   och lösenordet ger rätt att ersätta hela tävlingen mitt i loppet.
+   Filändelser och radslut anpassas för Windows (CRLF, BOM där det behövs,
+   ASCII i filnamnen) – `test/windowspaket.test.js` bevakar det.
+
 Löpare matchas mot onlinedatat via bricknummer; MOP-datat behåller företräde
 för namn, status och tider medan resultatfilen bidrar med stämplingslistan
 (inkl. `Missing`/`Additional`) och fyller i det som saknas. Löpare som bara
