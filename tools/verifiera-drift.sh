@@ -111,6 +111,27 @@ case "$cache" in
   *)          varna "Cache-Control saknar no-store: $cache" ;;
 esac
 
+# 7b. Hur länge cachas kvittosidans egna filer? Servern säger max-age=0 med
+#     ETag, men ett mellanled kan skriva över det: Cloudflares "Browser Cache
+#     TTL" sätter fyra timmar om den inte står på Respect Existing Headers.
+#     Filnamnen är oversionerade, så löparen kör då gammal app.js mot ett nytt
+#     API efter en driftsättning – det syns inte inifrån tjänsten, bara här.
+statcache=$(curl -sS -m 15 -o /dev/null -D - "$URL/app.js" 2>/dev/null |
+  tr -d '\r' | sed -n 's/^[Cc]ache-[Cc]ontrol: *//p')
+statalder=$(printf '%s' "$statcache" | sed -n 's/.*max-age=\([0-9]*\).*/\1/p')
+if [ -z "$statcache" ]; then
+  varna "Kvittosidans filer saknar Cache-Control – mellanled får gissa cachetid"
+elif [ -z "$statalder" ]; then
+  varna "Kvittosidans filer har ingen max-age: $statcache"
+elif [ "$statalder" -le 60 ]; then
+  ok "Kvittosidans filer cachas kort (${statalder}s)"
+else
+  fel "Kvittosidans filer cachas i ${statalder}s – gammal frontend mot nytt API efter deploy"
+  printf '      %s\n' "Servern säger max-age=0; värdet sätts av ett mellanled."
+  printf '      %s\n' "Cloudflare: sätt Browser Cache TTL till Respect Existing Headers"
+  printf '      %s\n' "(zonen, eller en Cache Rule för just det här värdnamnet)."
+fi
+
 # 8. Går det att lista tävlingar?
 tavlingar=$(hamta "$URL/api/competitions")
 case "$tavlingar" in

@@ -341,16 +341,64 @@ test('API-svar får inte cachas av mellanled', async (t) => {
   }
 });
 
-test('kvittosidans egna filer cachas som vanligt', async (t) => {
+/**
+ * KRAV-13: kvittosidans egna filer innehåller inga personuppgifter och får
+ * cachas – men bara kort.
+ *
+ * Filnamnen är oversionerade (`app.js`, inte `app.<hash>.js`), så en lång
+ * cachetid betyder att en löpare kör gammal frontend mot ett nytt API efter
+ * en driftsättning. Det hände skarpt: Cloudflare satte fyra timmar och ett
+ * nytillkommet fält i `/api/receipt` syntes inte på sidan, trots att både
+ * servern och svaret var rätt. Med 60 sekunder och ETag kvar kostar en
+ * oförändrad fil en 304 i stället för en omsändning.
+ */
+test('kvittosidans egna filer cachas kort och revalideras', async (t) => {
   const { server, base } = await startServer();
   t.after(() => server.close());
-  const res = await fetch(`${base}/app.js`);
-  assert.equal(res.status, 200);
-  assert.doesNotMatch(
-    res.headers.get('cache-control') || '',
-    /no-store/,
-    'statiska filer ska få cachas – de innehåller inga personuppgifter'
-  );
+
+  for (const väg of ['/app.js', '/styles.css', '/index.html']) {
+    const res = await fetch(base + väg);
+    assert.equal(res.status, 200, `${väg} svarade ${res.status}`);
+
+    const cache = res.headers.get('cache-control') || '';
+    assert.doesNotMatch(
+      cache,
+      /no-store/,
+      `${väg}: statiska filer ska få cachas – de innehåller inga personuppgifter`
+    );
+
+    const m = cache.match(/max-age=(\d+)/);
+    assert.ok(m, `${väg} saknar max-age i Cache-Control: "${cache}"`);
+    assert.ok(
+      Number(m[1]) <= 60,
+      `${väg} cachas i ${m[1]} s – en löpare kan då köra gammal frontend mot nytt API`
+    );
+
+    assert.ok(res.headers.get('etag'), `${väg} saknar ETag och kan inte revalideras billigt`);
+  }
+});
+
+/**
+ * Utan detta vore den korta cachetiden dyr: varje besök skulle hämta hela
+ * filen på nytt i stället för att få ett tomt 304-svar.
+ *
+ * `cache-control: max-age=0` härmar webbläsarens vanliga omladdning. Node:s
+ * `fetch` skickar annars `no-cache`, vilket är en hård omladdning (Ctrl+F5)
+ * och per HTTP-specen ska ge 200 – utan den här raden mäter testet
+ * testklientens beteende i stället för serverns.
+ */
+test('en oförändrad fil revalideras med 304', async (t) => {
+  const { server, base } = await startServer();
+  t.after(() => server.close());
+
+  const första = await fetch(`${base}/app.js`);
+  const etag = första.headers.get('etag');
+  assert.ok(etag);
+
+  const andra = await fetch(`${base}/app.js`, {
+    headers: { 'if-none-match': etag, 'cache-control': 'max-age=0' },
+  });
+  assert.equal(andra.status, 304, 'oförändrad fil ska ge 304, inte en ny omsändning');
 });
 
 /**
