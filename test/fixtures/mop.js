@@ -103,6 +103,44 @@ ${cmps}
 </MOPComplete>`;
 }
 
+/**
+ * En komplett tävling styckad så som MeOS faktiskt skickar den (KRAV-1).
+ *
+ * MeOS skickar inte en tävling i ett anrop utan i klumpar om `chunk`
+ * toppnivåobjekt – tävlingen, varje kontroll, klass, klubb, lag och löpare
+ * räknas som ett objekt vardera. Bara den *första* klumpen bär rotelementet
+ * `MOPComplete`; flaggan konsumeras av MeOS när den skrivits, så resten kommer
+ * som `MOPDiff`. En mottagare som bara klarar den första klumpen tappar
+ * merparten av deltagarfältet, och eftersom metadatan ligger först är det just
+ * löparna som faller bort.
+ *
+ * Returnerar en lista med XML-dokument att posta i tur och ordning.
+ */
+export function mopChunkedSend(n = 150, { chunk = 64, name = 'Styckade tävlingen' } = {}) {
+  const objekt = [
+    `  <competition date="2026-08-06" organizer="Stora OK">${name}</competition>`,
+    '  <cls id="1" ord="1">H21</cls>',
+    '  <org id="5" nat="SWE">OK Skogen</org>',
+    ...Array.from(
+      { length: n },
+      (_, i) =>
+        `  <cmp id="${i + 1}" card="${500000 + i}">` +
+        `<base org="5" cls="1" stat="1" st="${360000 + i * 100}" rt="${20000 + i}">` +
+        `Löpare ${i + 1} Efternamn</base></cmp>`
+    ),
+  ];
+
+  const delar = [];
+  for (let i = 0; i < objekt.length; i += chunk) {
+    const rot = i === 0 ? 'MOPComplete' : 'MOPDiff';
+    delar.push(
+      `<?xml version="1.0" encoding="UTF-8"?>\n<${rot} xmlns="http://www.melin.nu/mop">\n` +
+        `${objekt.slice(i, i + chunk).join('\n')}\n</${rot}>`
+    );
+  }
+  return delar;
+}
+
 /** Komplett tävling utan löpare (för flertävlingsscenarier). */
 export function mopCompleteMinimal({ name = 'Nyare tävlingen', date = '2026-09-01' } = {}) {
   return `<?xml version="1.0" encoding="UTF-8"?>

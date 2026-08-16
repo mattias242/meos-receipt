@@ -10,7 +10,7 @@ räcker för att komma igång.
 
 | | Vad det ger | Hur ofta |
 | --- | --- | --- |
-| **Onlineresultat** (MOP) | Namn, klass, status, tider, placering, radiotider | var tionde sekund, automatiskt |
+| **Onlineresultat** (MOP) | Namn, klass, status, tider, placering, sträcktider | var tionde sekund, automatiskt |
 | **Resultatautomat** (IOF XML) | **Alla** stämplingar i banordning, även saknade och extra | så ofta du ställer in |
 
 Utan resultatautomaten visar kvittot bara radiokontrollerna. Med den visar det
@@ -53,6 +53,18 @@ Samma lösenord används av båda inflödena. Det sattes när tjänsten driftsat
 | Tävlings-id | ditt valda heltal, t.ex. `4` |
 | Lösenord | tjänstens lösenord |
 | Format | MeOS onlineprotokoll (MOP) |
+| Skicka alla sträcktider efter brickavläsning | **kryssa i** |
+| Packa stora filer (zip) | **lämna omarkerad** |
+
+Kryssrutan **"Skicka alla sträcktider efter brickavläsning"** är värd att slå på.
+Utan den skickar MeOS bara radiokontrollernas tider; med den kommer sträcktider
+för banans samtliga kontroller så snart löparens bricka lästs av. Det gör kvittot
+mycket bättre om steg 2 nedan inte hinner sättas upp, eller om uppladdningen
+tystnar mitt under tävlingen. Den ersätter ändå inte steg 2 — saknade och extra
+stämplingar finns inte i det här flödet.
+
+**Zip måste vara av.** Tjänsten stödjer inte komprimerade sändningar, och MeOS
+skickar inte om okomprimerat utan avbryter med ett fel.
 
 Ställ in **radiokontroller och mellantider** i MeOS om ni har dem — de blir
 sträcktider på kvittot direkt, utan resultatautomaten.
@@ -189,6 +201,8 @@ Ser du den texten är det Onlineresultat som slutat skicka.
 | Kvittot står stilla | Onlineresultat har slutat skicka — se varningen ovan |
 | Mejlformuläret syns inte | E-post är inte påslaget; `/api/health` visar `"email": false` |
 | `413` i MeOS eller uppladdningen | En proxy framför tjänsten stryper kroppsstorleken — säg till den som driftsatt |
+| "Misslyckades med att ladda upp onlineresultat" i MeOS | Tjänsten svarar inte som MeOS väntar sig. Kör den en version äldre än 2026-08-16 kommer bara en del av deltagarfältet fram — den behöver uppdateras |
+| "Onlineservern svarade: ZIP stöds ej" | "Packa stora filer (zip)" är ikryssad i Onlineresultat — kryssa ur den |
 
 Tävlingsdata gallras automatiskt efter 90 dagar.
 

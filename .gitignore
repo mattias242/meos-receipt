@@ -10,3 +10,9 @@ dist/
 # hämtade från en skarp tävling: de bär löparens namn, klubb och tider.
 /*.xml
 /Kvitto-*.pdf
+
+# MOP-protokollets facit i mop/ versionshanteras: schemat och Melins
+# referensimplementation är Apache 2.0 och hör hemma i repot. Själva
+# specifikationen är Melins dokumentation och sprids inte vidare härifrån –
+# den hämtas från melin.nu (Utvecklingsresurser).
+/mop/*.pdf

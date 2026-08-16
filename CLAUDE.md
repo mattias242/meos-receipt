@@ -99,6 +99,13 @@ MeOS resultatautomat ─IOF XML 3.0──▶ POST /iof ──┘   (minne + JSON
   Löparna matchas ihop på bricknummer (`punchesByCard` i `lib/mop.js`).
 - **`punches` slår `radios`.** `buildSplits` väljer den kompletta
   stämplingslistan från resultatfilen om den finns, annars radiotiderna från MOP.
+- **MOP bär inte bara radiotider.** Kryssar arrangören i "Skicka alla
+  sträcktider efter brickavläsning" i Onlineresultat innehåller `radios` hela
+  banans kontroller. Det ersätter ändå inte resultatfilerna: MeOS kastar
+  sträckstatusen och tar bara med kontroller som har en tid större än noll, så
+  saknade kontroller, extra stämplingar, absoluta tider och stämplingsordning
+  finns aldrig i MOP – och klassens kontrollista bygger på en enda representativ
+  bana, vilket spricker vid gaffling.
 - **Skarp data innehåller orimliga stämplingstider.** Gamla stämplingar kvar i
   brickan, eller en kontrollenhet med fel klocka, ger tider långt utanför
   loppet. En tid större än löparens totaltid är ingen sträcktid: kontrollen
@@ -108,9 +115,22 @@ MeOS resultatautomat ─IOF XML 3.0──▶ POST /iof ──┘   (minne + JSON
   banan som `Missing` för den som brutit utan att stämpla; en tabell med enbart
   streck säger löparen ingenting, så kvittot skriver i stället att inga
   stämplingar registrerats.
-- **XML-endpointerna svarar ren text**, aldrig JSON: `OK`, `BADCMP`, `BADPWD`,
-  `NOZIP`, `ERROR`. `NOZIP` (payload börjar med `PK`) får MeOS att skicka om
-  okomprimerat – zip stöds medvetet inte. Rå body, gräns 32 MB.
+- **MOP-endpointerna svarar XML**, aldrig JSON eller ren text:
+  `<?xml version="1.0"?><MOPStatus status="X"></MOPStatus>` med koderna `OK`,
+  `BADCMP`, `BADPWD`, `NOZIP`, `ERROR` (KRAV-1). Inpackningen är inte kosmetisk:
+  MeOS XML-parsar svaret, och en tom status bryter sändningsloopen. Eftersom
+  MeOS styckar en tävling i klumpar om 64 objekt där bara den första bär
+  `MOPComplete` kom bara den klumpen fram så länge vi svarade ren text – och
+  metadatan ligger först, så det var löparna som uteblev. `/iof` ingår inte i
+  MOP och svarar fortsatt ren text; dess klient är uppladdningsprogrammet
+  (KRAV-11), som matchar på strängen `OK`. Rå body, gräns 32 MB.
+- **Zip stöds inte, och MeOS sänder inte om okomprimerat.** Vi svarar `NOZIP`
+  (payload börjar med `PK`), men MeOS 5.0 avbryter då med ett fel i stället för
+  att försöka igen. "Packa stora filer (zip)" måste vara omarkerad i
+  Onlineresultat.
+- **Protokollets facit ligger i `mop/`**: specifikationen
+  (`MeOS Online Protocol.pdf`), schemat `mop.xsd` och Melins
+  referensimplementation i PHP. Kolla där innan du gissar om MOP.
 - **Statuskoder** är MeOS numeriska koder (`STATUS_TEXT` i `lib/receipt.js`);
   IOF-status mappas mot dem via `IOF_STATUS_TO_STAT` i `lib/iof.js`.
 - **Sparningen blockerar eventloopen** och gör det med hela databasen, inte

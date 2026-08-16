@@ -10,6 +10,7 @@ import {
   mopDiffExtraRunner,
   mopCompleteMinimal,
   mopCompleteManyRunners,
+  mopChunkedSend,
 } from '../../test/fixtures/mop.js';
 import { IOF_RESULTLIST } from '../../test/fixtures/iof.js';
 import { createMailer } from '../../lib/mailer.js';
@@ -38,13 +39,21 @@ async function stop(world) {
   }
 }
 
+// MOP-endpointerna svarar `<MOPStatus status="X"/>` (KRAV-1), resultatfilerna
+// ren text. `world.reply` är statuskoden i båda fallen, så scenarierna kan tala
+// om "svaret" utan att bry sig om inpackningen; `world.rawReply` är kroppen
+// oförändrad, för de scenarier som prövar just formatet.
+const MOP_STATUS = /<MOPStatus\s+status="([^"]*)"/;
+
 async function postXml(world, url, xml, headers = {}) {
   const res = await fetch(`${world.base}${url}`, {
     method: 'POST',
     headers: { 'content-type': 'application/xml', competition: '1', ...headers },
     body: xml,
   });
-  world.reply = await res.text();
+  world.rawReply = await res.text();
+  world.replyType = res.headers.get('content-type') || '';
+  world.reply = world.rawReply.match(MOP_STATUS)?.[1] ?? world.rawReply;
   return world.reply;
 }
 
@@ -198,6 +207,17 @@ When('MeOS skickar en komplett tävling med lösenordet {string}', async functio
 When('MeOS skickar zip-komprimerad data', async function () {
   await postMop(this, 'PK\x03\x04zipdata');
 });
+
+// KRAV-1: MeOS postar klumparna i tur och ordning på samma anslutning – bara
+// den första bär MOPComplete, resten kommer som MOPDiff.
+When(
+  'MeOS skickar en tävling med {int} löpare styckad i klumpar om {int} objekt',
+  async function (antal, chunk) {
+    const delar = mopChunkedSend(antal, { chunk });
+    assert.ok(delar.length > 1, `${antal} löpare skulle rymmas i en enda klump`);
+    for (const del of delar) await postMop(this, del);
+  }
+);
 
 When(
   'MeOS skickar en diff där {string} med bricka {int} anmäls i klassen {string}',
@@ -440,6 +460,25 @@ Then('innehåller felmeddelandet inte {string}', function (text) {
 
 Then('blir svaret {string}', function (expected) {
   assert.equal(this.reply, expected);
+});
+
+// KRAV-1: MeOS XML-parsar svaret. Att bara statuskoden stämmer räcker inte –
+// ren text ger tom status och får MeOS att avbryta efter första klumpen.
+Then('är svarskroppen exakt {string}', function (expected) {
+  assert.equal(this.rawReply, expected);
+});
+
+Then('har svaret innehållstypen {string}', function (expected) {
+  assert.ok(
+    this.replyType.startsWith(expected),
+    `innehållstypen var "${this.replyType}", väntade "${expected}"`
+  );
+});
+
+Then('har löparen med bricka {int} ett kvitto', async function (card) {
+  const { status, body } = await getJson(this, `/api/receipt?card=${card}`);
+  assert.equal(status, 200, `bricka ${card} gav ${status}: ${JSON.stringify(body)}`);
+  assert.ok(body.runner?.name, `bricka ${card} saknar löpare: ${JSON.stringify(body)}`);
 });
 
 Then('tävlingen {string} finns i tävlingslistan', async function (name) {

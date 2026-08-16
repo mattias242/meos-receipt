@@ -92,7 +92,12 @@ svar=$(printf 'PK\003\004' | curl -sS -m 15 -X POST "$URL/meos" \
   -H 'competition: 1' \
   -H 'pwd: fel-losenord-fran-verifiera-drift' \
   --data-binary @- 2>/dev/null)
-case "$svar" in
+#    Svaret är MOPStatus-XML (KRAV-1) – plocka ut statuskoden ur det. Äldre
+#    versioner svarade ren text, så båda formerna godtas här: sonden ska kunna
+#    granska en tjänst som ännu inte driftsatts om.
+kod=$(printf '%s' "$svar" | sed -n 's/.*<MOPStatus[^>]*status="\([^"]*\)".*/\1/p')
+[ -n "$kod" ] || kod="$svar"
+case "$kod" in
   BADPWD) ok "Skrivändpunkterna kräver lösenord" ;;
   NOZIP|OK)
     fel "Skrivändpunkterna saknar lösenord – vem som helst kan skicka in tävlingsdata"

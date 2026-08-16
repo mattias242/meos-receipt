@@ -30,8 +30,9 @@ MeOS ──(MOP XML, POST /meos)──▶ meos-receipt ◀──(mobil, /?card=1
 4. Kvittot kan delas som länk, laddas ner som PDF (en 100 mm kvittoremsa) och
    mejlas till löparen som PDF-bilaga om e-post är konfigurerat.
 
-Zip-komprimerade sändningar besvaras med `NOZIP`, vilket får MeOS att skicka
-om okomprimerat (samma beteende som referensimplementationen i PHP).
+Zip-komprimerade sändningar besvaras med `NOZIP`. MeOS skickar då *inte* om
+okomprimerat utan avbryter, så "Packa stora filer (zip)" måste vara omarkerad
+i Onlineresultat.
 
 ## Kom igång
 
@@ -293,8 +294,8 @@ e-postutskicket avstängt: mejlformuläret döljs och endpointen svarar `503`.
 
 | Endpoint | Beskrivning |
 | --- | --- |
-| `POST /meos` (även `/update`, `/update.php`) | Tar emot MOP-XML från MeOS. Svarar `OK`, `BADCMP`, `BADPWD`, `NOZIP` eller `ERROR` som text. |
-| `POST /iof` | Tar emot IOF XML 3.0 ResultList (med sträcktider) från resultatautomaten. Samma headers och svar som `/meos`. |
+| `POST /meos` (även `/update`, `/update.php`) | Tar emot MOP-XML från MeOS. Svarar `<?xml version="1.0"?><MOPStatus status="X"></MOPStatus>` där X är `OK`, `BADCMP`, `BADPWD`, `NOZIP` eller `ERROR` (KRAV-1). MeOS XML-parsar svaret – ren text bryter sändningen. |
+| `POST /iof` | Tar emot IOF XML 3.0 ResultList (med sträcktider) från resultatautomaten. Samma headers, men svarar statuskoden som ren text: klienten är uppladdningsprogrammet, inte MeOS. |
 | `GET /api/competitions` | Lista över inlästa tävlingar. |
 | `GET /api/search?q=<bricka eller namn>[&cmp=N]` | Sök löpare. Fler än 100 träffar avvisas med `400` och en uppmaning att skriva mer av namnet (KRAV-5). |
 | `GET /api/receipt?card=<bricka>[&cmp=N]` | Kvitto via bricknummer. Delad bricka ger `300` med en träfflista (KRAV-7). |

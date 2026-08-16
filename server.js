@@ -105,30 +105,47 @@ export function createApp({
 
   // --- XML push endpoints (MeOS online + resultatautomat) ------------------
   // Same header protocol for both: competition (id) and pwd (password).
-  function receiveXml(apply) {
+  /**
+   * MOP-svaret måste vara XML (KRAV-1). MeOS XML-parsar svaret och letar efter
+   * elementet `MOPStatus`; hittar den inget blir statusen tom, och då bryter
+   * den sändningsloopen. Det är inte kosmetiskt: MeOS styckar en tävling i
+   * klumpar om 64 objekt där bara den första bär `MOPComplete`, så ett svar
+   * MeOS inte förstår gör att bara den klumpen kommer fram – och eftersom
+   * tävling, klasser och klubbar ligger först är det löparna som uteblir.
+   * MeOS kvitterar inte heller sändningen, så hela tävlingen skickas om vid
+   * varje intervall i stället för en liten diff.
+   *
+   * `/iof` ingår inte i MOP – MeOS talar aldrig med den – så den behåller ren
+   * text, vilket uppladdningsprogrammet (KRAV-11) matchar på.
+   */
+  const mopStatus = (kod) => `<?xml version="1.0"?><MOPStatus status="${kod}"></MOPStatus>`;
+
+  function receiveXml(apply, { svar = mopStatus, typ = 'application/xml' } = {}) {
     return [
       express.raw({ type: () => true, limit: '32mb' }),
       (req, res) => {
-        res.type('text/plain');
+        res.type(typ);
+        const svara = (kod) => res.send(svar(kod));
 
         const cmpId = parseInt(req.get('competition') || '', 10);
-        if (!(cmpId > 0)) return res.send('BADCMP');
+        if (!(cmpId > 0)) return svara('BADCMP');
 
-        if (password && req.get('pwd') !== password) return res.send('BADPWD');
+        if (password && req.get('pwd') !== password) return svara('BADPWD');
 
         const data = req.body;
-        if (!Buffer.isBuffer(data) || data.length === 0) return res.send('ERROR');
+        if (!Buffer.isBuffer(data) || data.length === 0) return svara('ERROR');
 
-        // Zip (starts with 'PK') is not supported – MeOS falls back to plain XML.
-        if (data[0] === 0x50 && data[1] === 0x4b) return res.send('NOZIP');
+        // Zip (börjar med 'PK') stöds inte. MeOS sänder inte om okomprimerat –
+        // den avbryter med ett fel – så "Packa stora filer" måste vara av.
+        if (data[0] === 0x50 && data[1] === 0x4b) return svara('NOZIP');
 
         try {
           apply(cmpId, data.toString('utf8'));
         } catch (err) {
           console.error('Mottagningsfel:', err.message);
-          return res.send('ERROR');
+          return svara('ERROR');
         }
-        return res.send('OK');
+        return svara('OK');
       },
     ];
   }
@@ -138,8 +155,15 @@ export function createApp({
   app.post('/update', ...mopHandler);
   app.post('/update.php', ...mopHandler);
 
-  // IOF XML 3.0 ResultList med sträcktider, från MeOS resultatautomat (KRAV-9)
-  app.post('/iof', ...receiveXml((cid, xml) => applyIof(store, cid, xml)));
+  // IOF XML 3.0 ResultList med sträcktider, från MeOS resultatautomat (KRAV-9).
+  // Klienten är vårt eget uppladdningsprogram, inte MeOS – ren text (KRAV-11).
+  app.post(
+    '/iof',
+    ...receiveXml((cid, xml) => applyIof(store, cid, xml), {
+      svar: (kod) => kod,
+      typ: 'text/plain',
+    })
+  );
 
   // --- JSON API ------------------------------------------------------------
   // Kvittona hämtas över mobildata, ofta genom operatörsproxyer och bakom

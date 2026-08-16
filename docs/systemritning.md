@@ -22,7 +22,7 @@ flowchart TB
   SKRIPT -->|"POST /iof"| G1
 
   subgraph MOTTAG["Mottagning"]
-    G1["tävlings-id saknas → BADCMP<br/>fel lösenord → BADPWD<br/>zip → NOZIP · tom → ERROR<br/>tak 32 MB"]
+    G1["tävlings-id saknas → BADCMP<br/>fel lösenord → BADPWD<br/>zip → NOZIP · tom → ERROR<br/>/meos svarar MOPStatus-XML<br/>/iof svarar ren text · tak 32 MB"]
   end
 
   G1 --> STORE
@@ -69,9 +69,10 @@ Bricknumret används för uppslag men lämnar aldrig tjänsten (KRAV-5).
 
 | # | Skydd | Utan det |
 | --- | --- | --- |
-| 4 | Tävlings-id måste vara satt | Svar `BADCMP`. Samma statuskoder som MeOS referensimplementation, alltid ren text. |
+| 4 | Tävlings-id måste vara satt | Svar `BADCMP`. Samma statuskoder som MeOS referensimplementation. |
+| 4b | `/meos` svarar `MOPStatus`-XML | MeOS XML-parsar svaret. Ren text ger tom status och bryter sändningsloopen — och eftersom MeOS styckar en tävling i klumpar om 64 objekt, där bara den första bär `MOPComplete`, kommer bara den klumpen fram. Metadatan ligger först, så det är löparna som uteblir. MeOS kvitterar inte heller, så hela tävlingen skickas om varje intervall. `/iof` talar inte MOP och svarar ren text, som uppladdningsprogrammet matchar på. |
 | 5 | Lösenord krävs — och tjänsten vägrar starta utan | Skrivändpunkterna ligger öppna mot internet. Vem som helst kan ersätta hela tävlingen med en `MOPComplete` mitt under loppet. `ALLOW_NO_PASSWORD=1` för eget nät utan internet. |
-| 6 | Zip avvisas före tolkning | `NOZIP` får MeOS att skicka om okomprimerat. Kroppen tolkas aldrig. |
+| 6 | Zip avvisas före tolkning | Kroppen tolkas aldrig. `NOZIP` får inte MeOS att skicka om okomprimerat — MeOS 5.0 avbryter med ett fel — så "Packa stora filer (zip)" måste vara omarkerad i Onlineresultat. |
 | 7 | Tak 32 MB, rå kropp | Ligger nginx framför krävs `client_max_body_size 32m`, annars 413 mitt i tävlingen. |
 
 ### Lagret — KRAV-2, KRAV-8, KRAV-14

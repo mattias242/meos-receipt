@@ -8,6 +8,8 @@ import {
   mopCompleteMinimal,
   mopCompleteManyRunners,
 } from './fixtures/mop.js';
+import { IOF_RESULTLIST } from './fixtures/iof.js';
+import { mopStatus } from './helpers/mop-svar.js';
 
 async function startServer(opts = {}) {
   const app = createApp(opts);
@@ -24,7 +26,7 @@ async function postMop(base, xml, headers = {}) {
     headers: { 'content-type': 'application/xml', competition: '1', ...headers },
     body: xml,
   });
-  return res.text();
+  return mopStatus(await res.text());
 }
 
 test('MOP endpoint validates competition id and password', async (t) => {
@@ -36,10 +38,56 @@ test('MOP endpoint validates competition id and password', async (t) => {
   assert.equal(await postMop(base, MOP_COMPLETE, { pwd: 'hemligt' }), 'OK');
 });
 
-test('zip payloads get NOZIP so MeOS falls back to plain XML', async (t) => {
+// MeOS sänder inte om okomprimerat, den avbryter – "Packa stora filer" måste
+// vara omarkerad i Onlineresultat. Vi svarar NOZIP så att felet blir tydligt.
+test('zip payloads get NOZIP', async (t) => {
   const { server, base } = await startServer();
   t.after(() => server.close());
   assert.equal(await postMop(base, 'PK\x03\x04zipdata'), 'NOZIP');
+});
+
+/**
+ * KRAV-1: MeOS XML-parsar svaret och letar efter elementet `MOPStatus`. Ett
+ * svar den inte kan tolka ger tom status, vilket bryter sändningsloopen efter
+ * första klumpen – därför räcker det inte att statuskoden stämmer, formatet
+ * måste hållas. Detta är kontraktet i protokollspecifikationen och i Melins
+ * referensimplementation (`mop/functions.php`).
+ */
+test('MOP endpoint answers MOPStatus XML, not plain text', async (t) => {
+  const { server, base } = await startServer({ password: 'hemligt' });
+  t.after(() => server.close());
+
+  const svara = async (headers) => {
+    const res = await fetch(`${base}/meos`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/xml', competition: '1', ...headers },
+      body: MOP_COMPLETE,
+    });
+    return { typ: res.headers.get('content-type'), kropp: await res.text() };
+  };
+
+  const ok = await svara({ pwd: 'hemligt' });
+  assert.equal(ok.kropp, '<?xml version="1.0"?><MOPStatus status="OK"></MOPStatus>');
+  assert.match(ok.typ, /^application\/xml/);
+
+  // Även avvisade sändningar måste packas in, annars ser MeOS inte varför.
+  const fel = await svara({ pwd: 'fel' });
+  assert.equal(fel.kropp, '<?xml version="1.0"?><MOPStatus status="BADPWD"></MOPStatus>');
+});
+
+// KRAV-9/KRAV-11: /iof ingår inte i MOP. Klienten är vårt eget
+// uppladdningsprogram, som matchar på strängen OK, så den svarar ren text.
+test('IOF endpoint keeps the plain text reply the upload script matches on', async (t) => {
+  const { server, base } = await startServer();
+  t.after(() => server.close());
+
+  const res = await fetch(`${base}/iof`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/xml', competition: '1' },
+    body: IOF_RESULTLIST,
+  });
+  assert.equal(await res.text(), 'OK');
+  assert.match(res.headers.get('content-type'), /^text\/plain/);
 });
 
 test('receipt by card number: result, placement, splits', async (t) => {

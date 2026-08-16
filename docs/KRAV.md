@@ -11,7 +11,7 @@ grönt.
 
 | Krav | Beskrivning | Egenskap (feature-fil) |
 | --- | --- | --- |
-| KRAV-1 | Tjänsten tar emot tävlingsdata via MeOS onlineprotokoll (MOP 2.0) med tävlings-id och lösenord i HTTP-headers, och svarar med samma statuskoder som MeOS referensimplementation (`OK`, `BADCMP`, `BADPWD`, `NOZIP`, `ERROR`). | `features/mop-mottagning.feature` |
+| KRAV-1 | Tjänsten tar emot tävlingsdata via MeOS onlineprotokoll (MOP 2.0) med tävlings-id och lösenord i HTTP-headers. Svaret är **XML**, inte ren text: `<?xml version="1.0"?><MOPStatus status="X"></MOPStatus>` där X är `OK`, `BADCMP`, `BADPWD`, `NOZIP` eller `ERROR` – så som protokollspecifikationen kräver och referensimplementationen (`mop/functions.php`) gör. Inpackningen är inte en formalitet: MeOS XML-parsar svaret och letar efter elementet `MOPStatus`, och ett svar den inte kan tolka ger tom status, vilket bryter sändningsloopen. Det spelar roll eftersom MeOS **styckar en sändning i klumpar om 64 objekt** (en löpare, en klass, en klubb, en kontroll, ett lag eller tävlingen räknas som ett objekt vardera) och skickar dem som separata anrop; bara den första klumpen bär rotelementet `MOPComplete`, resten kommer som `MOPDiff`. Svarar tjänsten ren text tas alltså bara den första klumpen emot, och eftersom MeOS då aldrig kvitterar sändningen skickas hela tävlingen om på nytt vid varje intervall i stället för en liten diff. Med 110 löpare, 8 klasser och 17 klubbar – 136 objekt – nådde 72 löpare aldrig fram den vägen; att resultatfilerna (KRAV-9) skapar löpare som saknas maskerade felet. Statuskoderna måste därför packas i `MOPStatus`, och en sändning som spänner över flera klumpar ska landa i sin helhet. | `features/mop-mottagning.feature` |
 | KRAV-2 | `MOPComplete` ersätter all data för tävlingen; `MOPDiff` uppdaterar befintlig data utan att radera annat. Stämplingar som lästs in från resultatfiler (KRAV-9) överlever dock en `MOPComplete` – de har en egen källa som MeOS onlineprotokoll inte äger, och skulle annars försvinna varje gång Onlineresultat startas om. Löparna matchas ihop på bricknummer. | `features/mop-mottagning.feature` |
 | KRAV-3 | En löpare kan hämta sitt digitala kvitto med sitt SportIdent-nummer. Bricknumret används för att slå upp kvittot men visas inte på det – namn och klubb räcker för att känna igen sig (KRAV-5). Kvittot visar namn, klubb, klass, löptid, status, placering, tid efter segraren, start-/måltid samt sträcktider (radiokontroller + mål) med sträck-, total- och klocktid. För en stafettlöpare visas dessutom lagets tid vid målgång – den egna löptiden plus tiden från tidigare sträckor (MOP:s `input`) – eftersom sträcktiden ensam inte säger hur laget ligger till. Enligt MOP-specen gäller den bara när totalstatusen är OK. | `features/kvitto.feature` |
 | KRAV-4 | Status visas begripligt på svenska: godkänd, felstämplad, utgått, ej start m.fl. En löpare som startat men saknar resultat visas som "Ute på banan". En löpare som inte kommit till start (ej start, återbud, deltar ej) visas utan starttid, även om MeOS har en tilldelad starttid – kvittot ska visa vad som hände, inte en tid som ser ut som en genomförd start. Preliminära resultat markeras och får preliminär placering. | `features/kvitto.feature` |
@@ -50,9 +50,26 @@ grönt.
 
 ## Avgränsningar
 
-- MOP-protokollet innehåller endast radiotider. Kompletta stämplingar per
-  kontroll skickas inte av MeOS den vägen; för fullständiga kvitton med alla
-  stämplingar (inkl. felstämplade och saknade) kompletteras MOP med
-  resultatfiler från MeOS resultatautomat (KRAV-9/KRAV-10).
-- Zip-komprimerade sändningar stöds inte; tjänsten svarar `NOZIP` vilket får
-  MeOS att sända om okomprimerat (samma beteende som referensimplementationen).
+- MOP-flödet innehåller normalt bara radiotider, men inte nödvändigtvis: kryssar
+  arrangören i **"Skicka alla sträcktider efter brickavläsning"** i Onlineresultat
+  bär MOP sträcktider för banans samtliga kontroller. Det räcker ändå inte för
+  KRAV-10. MeOS kastar sträckstatusen och tar bara med kontroller som har en tid
+  större än noll, så MOP kan aldrig visa saknade kontroller vid felstämpling,
+  extra stämplingar från glömd TÖM, absoluta stämplingstider eller
+  stämplingsordning – och klassens kontrollista bygger på en enda representativ
+  bana, vilket inte håller vid gaffling. För fullständiga kvitton kompletteras MOP
+  därför med resultatfiler från MeOS resultatautomat (KRAV-9/KRAV-10).
+- Zip-komprimerade sändningar stöds inte; tjänsten svarar `NOZIP`. Till skillnad
+  från vad som tidigare stod här sänder MeOS **inte** om okomprimerat – MeOS 5.0
+  avbryter med ett fel. Arrangören måste därför låta "Packa stora filer (zip)"
+  vara omarkerad i Onlineresultat.
+- **MeOS kan inte skicka IOF XML till en URL.** Onlineresultat erbjuder IOF XML
+  3.0 som exportformat, men i MeOS 5.0 kastas den exporterade filen bort i
+  URL-grenen och det som postas är MOP-bufferten, som är tom för IOF-format.
+  Resultatfilsvägen (KRAV-9) kan alltså inte ersättas av MeOS egen push, utan
+  kräver uppladdningsprogrammet (KRAV-11). Utrett 2026-08-16 mot MeOS 5.0 RC 1.
+- **MeOS inbyggda REST-server kan inte användas.** Automaten "Informationsserver"
+  serverar både MOP-diffar och fullständig IOF XML med sträcktider från en och
+  samma källa, men den saknar autentisering helt och lyssnar bara på
+  tävlingsdatorns eget nät. Eftersom tjänsten ligger på internet och arenan saknar
+  wifi (KRAV-13) kan tjänsten inte hämta därifrån. Utrett 2026-08-16.

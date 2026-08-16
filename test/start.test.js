@@ -6,6 +6,7 @@ import path from 'node:path';
 import net from 'node:net';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { mopStatus } from './helpers/mop-svar.js';
 
 /**
  * KRAV-13: tjänsten ligger på internet.
@@ -128,7 +129,7 @@ test('en omstart tappar inte det som väntade på att skrivas', async () => {
     headers: { 'content-type': 'application/xml', competition: '1', pwd: 'hemligt' },
     body: MOP_COMPLETE,
   });
-  assert.equal(await svar.text(), 'OK');
+  assert.equal(mopStatus(await svar.text()), 'OK');
 
   // Direkt efter mottagningen, innan debouncen hunnit spara
   const avslutad = new Promise((r) => proc.on('close', r));

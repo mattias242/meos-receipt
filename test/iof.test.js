@@ -7,6 +7,7 @@ import { buildReceipt } from '../lib/receipt.js';
 import { createApp } from '../server.js';
 import { MOP_COMPLETE } from './fixtures/mop.js';
 import { IOF_RESULTLIST } from './fixtures/iof.js';
+import { mopStatus } from './helpers/mop-svar.js';
 
 // ---------------------------------------------------------------------------
 // Parsning (KRAV-9)
@@ -55,7 +56,8 @@ async function post(base, url, xml, headers = {}) {
     headers: { 'content-type': 'application/xml', competition: '1', ...headers },
     body: xml,
   });
-  return res.text();
+  // /meos svarar MOPStatus-XML, /iof ren text – mopStatus ger koden i båda fallen.
+  return mopStatus(await res.text());
 }
 
 test('IOF-fil kompletterar MOP-data: alla stämplingar på kvittot', async (t) => {
