@@ -13,6 +13,10 @@
  * - Gustav Grön (555555): utgått efter att ha hunnit två kontroller
  * - Helga Hök (666666): godkänd, men kontroll 32 har en tid långt utanför
  *   loppet (gammal stämpling i brickan / kontrollenhet med fel klocka)
+ * - Ivar Isaksson (777777): godkänd, men kontroll 87 har en klocka som går
+ *   före. Tiden ryms inom loppet och slinker därför förbi totaltidsfiltret –
+ *   den avslöjas bara av att den motsäger banordningen (87 ligger före 46 i
+ *   banan men har högre tid). Så såg Sommarträning 13/8 ut på Orange-banan.
  */
 export const IOF_RESULTLIST = `<?xml version="1.0" encoding="UTF-8"?>
 <ResultList xmlns="http://www.orienteering.org/datastandard/3.0" iofVersion="3.0" status="Complete">
@@ -106,6 +110,25 @@ export const IOF_RESULTLIST = `<?xml version="1.0" encoding="UTF-8"?>
         <Status>OK</Status>
         <SplitTime><ControlCode>31</ControlCode><Time>500</Time></SplitTime>
         <ControlCard>333333</ControlCard>
+      </Result>
+    </PersonResult>
+  </ClassResult>
+  <ClassResult>
+    <Class><Id>4</Id><Name>H45</Name></Class>
+    <PersonResult>
+      <Person><Name><Given>Ivar</Given><Family>Isaksson</Family></Name></Person>
+      <Organisation><Name>OK Skogen</Name></Organisation>
+      <Result>
+        <StartTime>2026-08-06T10:00:00+02:00</StartTime>
+        <FinishTime>2026-08-06T10:30:00+02:00</FinishTime>
+        <Time>1800</Time>
+        <Status>OK</Status>
+        <SplitTime><ControlCode>31</ControlCode><Time>300</Time></SplitTime>
+        <SplitTime><ControlCode>87</ControlCode><Time>1400</Time></SplitTime>
+        <SplitTime><ControlCode>46</ControlCode><Time>1000</Time></SplitTime>
+        <SplitTime><ControlCode>45</ControlCode><Time>1500</Time></SplitTime>
+        <SplitTime><ControlCode>50</ControlCode><Time>1650</Time></SplitTime>
+        <ControlCard>777777</ControlCard>
       </Result>
     </PersonResult>
   </ClassResult>

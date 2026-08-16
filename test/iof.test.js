@@ -16,7 +16,7 @@ test('parseIofResultList: event, löpare, brickor och sträcktider', () => {
   const { event, results } = parseIofResultList(IOF_RESULTLIST);
   assert.equal(event.name, 'Testtävlingen');
   assert.equal(event.date, '2026-08-06');
-  assert.equal(results.length, 6); // se fixturens huvudkommentar
+  assert.equal(results.length, 7); // se fixturens huvudkommentar
 
   const anna = results.find((r) => r.card === 123456);
   assert.equal(anna.name, 'Anna Andersson');
@@ -135,6 +135,134 @@ test('stämplingstid utanför loppet ignoreras utan att förstöra nästa sträc
   assert.equal(r.splits[2].elapsed, '15:00');
   assert.equal(r.splits[3].leg, '10:00');   // 1500 - 900
   assert.equal(r.splits.at(-1).leg, '5:00'); // Mål: 1800 - 1500
+});
+
+/**
+ * KRAV-10: en kontrollenhet vars klocka går fel *inom* loppets tidsfönster.
+ *
+ * Totaltidsfiltret ovan fångar bara tider som ligger efter målgång. Går
+ * klockan några minuter fel hamnar tiden mitt i loppet och ser fullt rimlig
+ * ut – tills man läser tabellen i banordning och ser att totaltiden hoppar
+ * baklänges. På Sommarträning 13/8 gav det en sträcka på 23 minuter där
+ * löparen sprungit i sju, och en negativ sträcka på nästa kontroll.
+ *
+ * Vilken sida som har rätt klocka går inte att avgöra ur filen, så båda
+ * kontrollerna i motsägelsen visas utan tider. Att i stället lita på
+ * majoriteten hade i det verkliga fallet behållit just de felaktiga tiderna:
+ * på Orange-banan var de felställda enheterna i majoritet.
+ */
+test('stämplingstid som motsäger banordningen visas inte som sträcktid', async (t) => {
+  const { base, server } = await startServer();
+  t.after(() => server.close());
+  assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
+  assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
+
+  const r = await (await fetch(`${base}/api/receipt?card=777777`)).json();
+  assert.equal(r.result.statusText, 'Godkänd');
+  assert.deepEqual(r.splits.map((s) => s.name), ['31', '87', '46', '45', '50', 'Mål']);
+
+  // 87 (1400 s) ligger före 46 (1000 s) i banan men har högre tid – båda
+  // förlorar sina tider, eftersom det inte går att veta vilken som ljuger.
+  for (const namn of ['87', '46']) {
+    const s = r.splits.find((x) => x.name === namn);
+    assert.equal(s.leg, '', `${namn} skulle inte ha någon sträcktid`);
+    assert.equal(s.elapsed, '');
+    assert.equal(s.clock, '');
+    assert.equal(s.unreliable, true, `${namn} ska märkas som opålitlig, inte som saknad`);
+    assert.notEqual(s.status, 'missing', 'stämplingen finns – det är tiden som är fel');
+  }
+
+  // Resten av kvittot räknas från senaste giltiga stämpling (31, 300 s)
+  const k45 = r.splits.find((s) => s.name === '45');
+  assert.equal(k45.leg, '20:00');
+  assert.equal(k45.elapsed, '25:00');
+  assert.equal(k45.clock, '10:25:00');
+  assert.equal(r.splits.find((s) => s.name === '50').leg, '2:30');
+  assert.equal(r.splits.at(-1).leg, '2:30', 'målsträckan räknas från 50');
+
+  assert.match(r.notes.unreliableTimes, /klocka/i, 'streckraderna ska förklaras');
+});
+
+// Extra stämplingar uppstår inte under loppet – de ligger kvar i pinnen sedan
+// en tidigare aktivitet därför att löparen missat TÖM före start. Utan
+// förklaring läser löparen dem som att hon sprungit fel.
+test('extra stämplingar ger ett tips om TÖM, annars inget', async (t) => {
+  const { base, server } = await startServer();
+  t.after(() => server.close());
+  assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
+  assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
+
+  const medExtra = await (await fetch(`${base}/api/receipt?card=123456`)).json();
+  assert.ok(medExtra.splits.some((s) => s.status === 'additional'));
+  assert.match(medExtra.notes.extraPunches, /TÖM/);
+
+  const utanExtra = await (await fetch(`${base}/api/receipt?card=111111`)).json();
+  assert.ok(!utanExtra.splits.some((s) => s.status === 'additional'));
+  assert.ok(!utanExtra.notes?.extraPunches, 'inget tips utan extra stämplingar');
+});
+
+/**
+ * En felställd enhetsklocka drabbar alla som passerar kontrollen, inte en
+ * enskild löpare. Kvittot kan bara sluta visa tiden – felet självt sitter i
+ * enheten och måste rättas av arrangören före nästa tävling. Samma mönster
+ * som filens övriga varningar: tjänsten tar emot det den får, men säger till
+ * om vad som ser fel ut.
+ */
+test('en kontrollenhet som stämplar ur ordning för många löpare varnas det om', (t) => {
+  const varningar = [];
+  const original = console.warn;
+  console.warn = (...a) => varningar.push(a.join(' '));
+  t.after(() => { console.warn = original; });
+
+  const store = createStore();
+  applyIof(store, 1, minimalResultList(
+    ['111', '222', '333'].map((card, i) =>
+      '<PersonResult><Person><Name><Given>A</Given><Family>B</Family></Name></Person>' +
+      `<Result><StartTime>2026-08-06T10:00:00+02:00</StartTime><Status>OK</Status><Time>${1800 + i}</Time>` +
+      `<SplitTime><ControlCode>31</ControlCode><Time>${300 + i}</Time></SplitTime>` +
+      `<SplitTime><ControlCode>87</ControlCode><Time>${1400 + i}</Time></SplitTime>` +
+      `<SplitTime><ControlCode>32</ControlCode><Time>${1000 + i}</Time></SplitTime>` +
+      `<ControlCard>${card}</ControlCard></Result></PersonResult>`
+    ).join('')
+  ));
+
+  const varning = varningar.find((v) => /87/.test(v));
+  assert.ok(varning, `ingen varning om enhet 87:\n${varningar.join('\n')}`);
+  assert.match(varning, /klocka/i, 'varningen ska peka ut vad arrangören ska göra');
+  // Vilken av 87 och 32 som har fel klocka går inte att veta – båda nämns, och
+  // varningen påstår inte mer än så.
+  assert.match(varning, /32/, 'motparten i motsägelsen ska nämnas');
+  assert.match(varning, /[Nn]ågon av dem/, 'varningen ska inte utpeka fel enhet som skyldig');
+  assert.ok(
+    !varningar.some((v) => /\b31\b/.test(v)),
+    `enheter som stämplar i ordning ska inte pekas ut:\n${varningar.join('\n')}`
+  );
+});
+
+// En stämpling efter målgång kan inte vara riktig oavsett vad de andra
+// kontrollerna visar – där behöver varningen inte reservera sig.
+test('en kontrollenhet som stämplar efter målgång pekas ut utan reservation', (t) => {
+  const varningar = [];
+  const original = console.warn;
+  console.warn = (...a) => varningar.push(a.join(' '));
+  t.after(() => { console.warn = original; });
+
+  const store = createStore();
+  applyIof(store, 1, minimalResultList(
+    ['111', '222'].map((card, i) =>
+      '<PersonResult><Person><Name><Given>A</Given><Family>B</Family></Name></Person>' +
+      `<Result><StartTime>2026-08-06T10:00:00+02:00</StartTime><Status>OK</Status><Time>${1800 + i}</Time>` +
+      `<SplitTime><ControlCode>31</ControlCode><Time>${300 + i}</Time></SplitTime>` +
+      `<SplitTime><ControlCode>84</ControlCode><Time>${3000 + i}</Time></SplitTime>` +
+      `<ControlCard>${card}</ControlCard></Result></PersonResult>`
+    ).join('')
+  ));
+
+  const varning = varningar.find((v) => /84/.test(v));
+  assert.ok(varning, `ingen varning om enhet 84:\n${varningar.join('\n')}`);
+  assert.match(varning, /målgång/, 'varningen ska säga vad som är fel');
+  assert.doesNotMatch(varning, /[Nn]ågon av dem/, 'här råder ingen tvekan om vilken enhet det gäller');
+  assert.ok(!/\b31\b/.test(varning), `den felfria enheten ska inte nämnas: ${varning}`);
 });
 
 test('IOF-fil fyller i status och måltid för löpare utan MOP-resultat', async (t) => {

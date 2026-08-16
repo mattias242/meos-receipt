@@ -539,6 +539,38 @@ Then('stämplingen {string} är markerad som saknad', function (name) {
   assert.equal(split.elapsed, '', 'en saknad stämpling ska inte ha någon tid');
 });
 
+// KRAV-10: skiljer en kontroll löparen faktiskt stämplade, men vars tid inte
+// går att lita på, från en hon aldrig stämplade.
+Then('stämplingen {string} är markerad som opålitlig', function (name) {
+  const split = this.res.body.splits.find((s) => s.name === name);
+  assert.ok(split, `stämplingen ${name} saknas i kvittot`);
+  assert.equal(split.unreliable, true);
+  assert.notEqual(split.status, 'missing', 'stämplingen finns – det är tiden som är fel');
+});
+
+Then('kvittot förklarar att en kontrollenhets klocka visat fel', function () {
+  assert.match(
+    String(this.res.body.notes?.unreliableTimes || ''),
+    /klocka/i,
+    `kvittot förklarar inte streckraderna: ${JSON.stringify(this.res.body.notes)}`
+  );
+});
+
+Then('kvittot tipsar om att stämpla TÖM före start', function () {
+  assert.match(
+    String(this.res.body.notes?.extraPunches || ''),
+    /TÖM/,
+    `kvittot saknar TÖM-tipset: ${JSON.stringify(this.res.body.notes)}`
+  );
+});
+
+Then('tipsar kvittot inte om TÖM', function () {
+  assert.ok(
+    !this.res.body.notes?.extraPunches,
+    `tipset ska bara visas när det finns extra stämplingar: ${JSON.stringify(this.res.body.notes)}`
+  );
+});
+
 Then('stämplingen {string} är markerad som extra', function (name) {
   const split = this.res.body.splits.find((s) => s.name === name);
   assert.ok(split, `stämplingen ${name} saknas i kvittot`);

@@ -278,6 +278,14 @@ main .lead {
 .receipt .badge.extra { background: #d8dcd8; color: #444; }
 .receipt .missRow td { color: #b03030; }
 .receipt .noPunches { text-align: center; color: var(--muted); }
+/* Förklaringar under sträcktabellen: varför en rad saknar tider, och varför
+   det ligger stämplingar i pinnen som inte hör till loppet. */
+.receipt .note {
+  margin-top: 0.6rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
 /* Underlaget står stilla – syns bara när resultatet ännu inte är fastställt. */
 .receipt .stale {
   margin-top: 0.9rem;

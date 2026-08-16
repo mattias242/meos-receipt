@@ -6,5 +6,7 @@ dist/
 .DS_Store
 
 # Skarpa resultatfiler från MeOS (innehåller personuppgifter) – testdata
-# hör hemma i test/fixtures/ i avidentifierad form.
+# hör hemma i test/fixtures/ i avidentifierad form. Samma sak för kvitton
+# hämtade från en skarp tävling: de bär löparens namn, klubb och tider.
 /*.xml
+/Kvitto-*.pdf

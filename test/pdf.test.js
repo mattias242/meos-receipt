@@ -63,6 +63,41 @@ test('receiptLines märker ut saknade och extra stämplingar', () => {
   assert.ok(lines.some((l) => l.text.startsWith('77 EXTRA')), 'extra stämpling omärkt');
 });
 
+/**
+ * KRAV-10: en rad utan tider betyder två helt olika saker – att löparen missat
+ * kontrollen, eller att kontrollenhetens klocka visat fel. På papper syns bara
+ * streck i båda fallen, så markören och fotnoten är det enda som skiljer dem.
+ * PDF:en är dessutom det löparen sparar och visar upp senare, när ingen finns
+ * kvar att fråga.
+ */
+test('receiptLines märker opålitliga tider med * och förklarar dem', () => {
+  const medKlockfel = {
+    ...RECEIPT,
+    splits: [
+      { control: 31, name: '31', status: 'ok', unreliable: false, clock: '10:07:30', elapsed: '7:30', leg: '7:30' },
+      { control: 87, name: '87', status: 'ok', unreliable: true, clock: '', elapsed: '', leg: '' },
+      { control: 45, name: '45', status: 'missing', unreliable: false, clock: '', elapsed: '', leg: '' },
+    ],
+    notes: { unreliableTimes: 'tiden är orimlig – kontrollenhetens klocka har troligen visat fel' },
+  };
+  const text = textOf(receiptLines(medKlockfel));
+
+  assert.match(text, /^87\s+\*\s+\*\s+\*$/m, 'den opålitliga raden ska märkas med *');
+  assert.match(text, /^45 SAKNAS\s+-\s+-\s+-$/m, 'en kontroll som aldrig stämplats får streck');
+  assert.ok(text.includes('* tiden är orimlig'), `fotnoten saknas:\n${text}`);
+});
+
+test('receiptLines tar med tipset om TÖM när det finns extra stämplingar', () => {
+  const text = textOf(receiptLines({
+    ...RECEIPT,
+    notes: { extraPunches: 'Extra stämplingar kommer från en tidigare aktivitet – stämpla TÖM före start.' },
+  }));
+  assert.ok(text.includes('TÖM'), `tipset saknas:\n${text}`);
+
+  const utan = textOf(receiptLines(RECEIPT));
+  assert.ok(!utan.includes('TÖM'), 'tipset ska bara visas när det behövs');
+});
+
 test('receiptLines behåller stämplingarnas ordning från kvittot', () => {
   const controls = receiptLines(RECEIPT)
     .map((l) => l.text.trim().split(/\s+/)[0])
@@ -244,6 +279,8 @@ const INTE_TEXT = {
   'r.splits.length': 'styr om tabellen visas',
   'res.preliminary': 'flagga; texten den ger prövas separat nedan',
   's.status': 'flagga; ger märkningen SAKNAS/EXTRA, prövad i eget test',
+  's.unreliable': 'flagga; ger markören *, prövad i eget test',
+  'r.notes': 'behållare; de två texterna prövas i eget test',
   'r.updated': 'formateras olika på sidan och i PDF:en; raden prövas nedan',
 };
 

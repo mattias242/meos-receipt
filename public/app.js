@@ -115,14 +115,24 @@ function renderReceipt(r) {
           : s.status === 'additional'
             ? ' <span class="badge extra">extra</span>'
             : '';
+      // Stämplingen finns, men tiden går inte att lita på. Markören skiljer
+      // raden från en kontroll löparen aldrig stämplade; fotnoten under
+      // tabellen säger varför.
+      const tom = s.unreliable ? '*' : '–';
       return `<tr class="splitsBody${s.status === 'missing' ? ' missRow' : ''}">
         <th scope="row">${esc(s.name)}${badge}</th>
-        <td class="num">${esc(s.leg) || '–'}</td>
-        <td class="num">${esc(s.elapsed) || '–'}</td>
-        <td class="num">${esc(s.clock) || '–'}</td>
+        <td class="num">${esc(s.leg) || tom}</td>
+        <td class="num">${esc(s.elapsed) || tom}</td>
+        <td class="num">${esc(s.clock) || tom}</td>
       </tr>`;
     })
     .join('');
+
+  const notes = r.notes || {};
+  const noteRows = [
+    notes.unreliableTimes ? `<div class="note">* ${esc(notes.unreliableTimes)}</div>` : '',
+    notes.extraPunches ? `<div class="note">${esc(notes.extraPunches)}</div>` : '',
+  ].join('');
 
   const place = res.place
     ? `<div class="place">Placering: <strong>${res.place}</strong> av ${res.finished} i mål</div>`
@@ -164,7 +174,8 @@ function renderReceipt(r) {
       <table>
         <tr class="splitsHead"><th scope="col">Kontroll</th><th scope="col" class="num">Sträcka</th><th scope="col" class="num">Total</th><th scope="col" class="num">Klocka</th></tr>
         ${rows}
-      </table>`
+      </table>
+      ${noteRows}`
         : res.startTime
           ? '<hr /><div class="noPunches">Inga stämplingar registrerade</div>'
           : ''

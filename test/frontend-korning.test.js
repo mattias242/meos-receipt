@@ -137,6 +137,69 @@ test('ett borttaget kvitto slutar efterfrågas', async () => {
  * uppladdade filen. Endpointen är lösenordsskyddad (KRAV-13), men en löpare
  * skriver ofta sitt namn själv i anmälningssystemet.
  */
+/**
+ * KRAV-10: streck i tidskolumnerna betyder två olika saker – att kontrollen
+ * aldrig stämplades, eller att enhetens klocka visade fel. Utan markören och
+ * förklaringen läser löparen det senare som en missad kontroll, och tror sig
+ * ha felstämplat fast resultatet är godkänt.
+ */
+async function laddaKvitto(kvitto) {
+  const sida = laddaSidan({
+    search: '?cmp=1&id=31',
+    svar: (url) => {
+      if (url.includes('/health')) return { status: 200, body: { email: false } };
+      if (url.includes('/competitions')) return { status: 200, body: [] };
+      return { status: 200, body: kvitto };
+    },
+  });
+  await sida.tick(100);
+  return sida.el('receipt').innerHTML;
+}
+
+const KVITTO_MED_KLOCKFEL = {
+  competition: { id: 1, name: 'Testtävlingen', date: '2026-08-06', organizer: 'OK Test' },
+  runner: { id: 31, name: 'Anna Andersson', club: 'OK Skogen', class: 'H21' },
+  result: {
+    status: 1, statusText: 'Godkänd', preliminary: false, startTime: '10:00:00',
+    finishTime: '10:30:00', time: '30:00', place: 1, prelPlace: null,
+    finished: 1, total: 1, after: '', teamTime: '',
+  },
+  splits: [
+    { control: 31, name: '31', status: 'ok', unreliable: false, clock: '10:05:00', elapsed: '5:00', leg: '5:00' },
+    { control: 87, name: '87', status: 'ok', unreliable: true, clock: '', elapsed: '', leg: '' },
+    { control: 45, name: '45', status: 'missing', unreliable: false, clock: '', elapsed: '', leg: '' },
+  ],
+  notes: { unreliableTimes: 'kontrollenhetens klocka har troligen visat fel' },
+  updated: '2026-08-06T14:42:36.625Z',
+  updatedAgeSeconds: 3,
+};
+
+test('en opålitlig tid märks med * och förklaras under tabellen', async () => {
+  const html = await laddaKvitto(KVITTO_MED_KLOCKFEL);
+  const rader = html.split('</tr>');
+
+  const opålitlig = rader.find((r) => r.includes('>87<'));
+  assert.ok(opålitlig.includes('*'), `raden för 87 saknar markör:\n${opålitlig}`);
+  // Den saknade kontrollen får en badge efter namnet, därav ingen avslutande <
+  const saknad = rader.find((r) => r.includes('>45 <'));
+  assert.ok(!saknad.includes('*'), `en kontroll som aldrig stämplats ska ha streck:\n${saknad}`);
+
+  assert.ok(html.includes('kontrollenhetens klocka'), `förklaringen saknas:\n${html}`);
+});
+
+test('kvitto utan opålitliga tider får ingen förklaring', async () => {
+  const html = await laddaKvitto({ ...KVITTO_MED_KLOCKFEL, notes: {} });
+  assert.ok(!html.includes('kontrollenhetens klocka'), 'förklaringen visas utan anledning');
+});
+
+test('extra stämplingar ger tipset om TÖM', async () => {
+  const html = await laddaKvitto({
+    ...KVITTO_MED_KLOCKFEL,
+    notes: { extraPunches: 'stämpla TÖM före start' },
+  });
+  assert.ok(html.includes('TÖM'), `tipset renderades inte:\n${html}`);
+});
+
 const ELAKT = '<img src=x onerror="window.HACKAD=1">';
 
 test('inget fält på kvittot kan smuggla in markup', async () => {

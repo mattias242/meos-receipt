@@ -60,6 +60,33 @@ Egenskap: Resultatfiler från MeOS resultatautomat
     Och stämplingen "32" saknar tider
     Och sträckan "45" har sträcktid "10:00", totaltid "15:00" och klocktid "10:15:00"
 
+  # Sommarträning 13/8: sex kontrollenheter gick ~16 min fel. På Orange låg de
+  # mitt i loppet, så tiderna var mindre än totaltiden och slank igenom – med
+  # sträckor på 23 minuter och totaltider som hoppade baklänges som följd.
+  Scenario: Motstridiga stämplingstider visas utan tider i stället för som sanning
+    Givet att resultatautomaten har laddat upp en resultatfil
+    När jag hämtar kvittot för bricka 777777
+    Så visar kvittot status "Godkänd"
+    Och innehåller kvittot stämplingarna "31, 87, 46, 45, 50, Mål"
+    Och stämplingen "87" saknar tider
+    Och stämplingen "46" saknar tider
+    Och stämplingen "87" är markerad som opålitlig
+    Och sträckan "45" har sträcktid "20:00", totaltid "25:00" och klocktid "10:25:00"
+    Och kvittot förklarar att en kontrollenhets klocka visat fel
+
+  # Extra stämplingar kommer inte från det pågående loppet – de ligger kvar i
+  # pinnen sedan en tidigare aktivitet därför att löparen missat TÖM.
+  Scenario: Extra stämplingar förklaras med ett tips om TÖM
+    Givet att resultatautomaten har laddat upp en resultatfil
+    När jag hämtar kvittot för bricka 123456
+    Så stämplingen "77" är markerad som extra
+    Och kvittot tipsar om att stämpla TÖM före start
+
+  Scenario: Kvitto utan extra stämplingar tipsar inte om TÖM
+    Givet att resultatautomaten har laddat upp en resultatfil
+    När jag hämtar kvittot för bricka 111111
+    Så tipsar kvittot inte om TÖM
+
   Scenario: Efteranmäld löpare i resultatfilen blir inte dubblett
     Givet att resultatautomaten har laddat upp en resultatfil
     När MeOS skickar en diff där "Frida Frisk" med bricka 333333 anmäls i klassen "D21"
