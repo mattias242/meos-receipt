@@ -140,6 +140,11 @@ MeOS resultatautomat ─IOF XML 3.0──▶ POST /iof ──┘   (minne + JSON
   det; utan den står `100052` på kvittot, ett nummer som inte finns i skogen.
   Att felet var skarpt syntes inte i testerna – det upptäcktes genom att läsa
   ett riktigt kvitto ur driftsatt data.
+- **MeOS besöksnumrering hör inte hemma på kvittot.** Passerar banan samma
+  döpta kontroll två gånger heter de "Radio 1-1" och "Radio 1-2". Suffixet
+  stryks: det stämmer bara i MOP-flödet, som har ett eget id per besök, medan
+  resultatfilen bara bär kontrollkoden – andra passagen hade då påstått att
+  den är den första. Uppmätt: 103 löpare i RADIOTEST 2026-08-18.
 - **MeOS platshållarnamn är inte namn.** En odöpt kontroll får sin egen kod
   som namn (`54`, eller `79-1` vid flera passager), så namnet ska utelämnas
   ur parentesen – annars blir det `54 (54)`. Samma sak för vår egen gamla

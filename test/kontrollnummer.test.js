@@ -136,7 +136,8 @@ test('andra besöket på en kontroll visar kontrollkoden, inte MeOS interna id',
     ],
   });
   const r = buildReceipt(cmp, 'sim', 99);
-  assert.deepEqual(namn(r), ['52', '50 (Radio 1-1)', '52', '50 (Radio 1-2)', 'Mål']);
+  // Besöksnumret i namnet stryks – se "MeOS besöksnummer visas inte" nedan.
+  assert.deepEqual(namn(r), ['52', '50 (Radio 1)', '52', '50 (Radio 1)', 'Mål']);
   // Kontrollnumret utåt är koden, inte det interna id:t.
   assert.deepEqual(r.splits.map((s) => s.control), [52, 50, 52, 50, null]);
 });
@@ -147,4 +148,40 @@ test('tredje besöket följer samma regel', () => {
     radios: [{ ctrl: 200061, rt: 1000 }],
   });
   assert.deepEqual(namn(buildReceipt(cmp, 'sim', 99)), ['61', 'Mål']);
+});
+
+/**
+ * MeOS besöksnumrering hör inte hemma på kvittot.
+ *
+ * Passerar banan "Radio 1" två gånger döper MeOS kontrollerna "Radio 1-1"
+ * och "Radio 1-2". Suffixet går bara att lita på i MOP-flödet, som har ett
+ * eget id per besök. Resultatfilen bär bara kontrollkoden, så båda
+ * passagerna slås upp på samma kontroll – och andra passagen skulle påstå
+ * att den är den första. Samma kontroll ska heta samma sak oavsett flöde;
+ * vilken passage det är framgår av ordningen i tabellen.
+ *
+ * Uppmätt i RADIOTEST 2026-08-18: 103 löpare passerade en döpt kontroll
+ * mer än en gång.
+ */
+test('MeOS besöksnummer visas inte i kontrollnamnet', () => {
+  const cmp = tavling({
+    controls: { 50: { name: 'Radio 1-1' }, 100050: { name: 'Radio 1-2' } },
+    radios: [{ ctrl: 50, rt: 1000 }, { ctrl: 100050, rt: 2000 }],
+  });
+  assert.deepEqual(namn(buildReceipt(cmp, 'sim', 99)), ['50 (Radio 1)', '50 (Radio 1)', 'Mål']);
+});
+
+test('samma kontroll heter samma sak i båda flödena', () => {
+  const controls = { 50: { name: 'Radio 1-1' }, 100050: { name: 'Radio 1-2' } };
+  // MOP vet vilket besök det är och har ett eget id för det andra.
+  const franMop = tavling({ controls, radios: [{ ctrl: 50, rt: 1000 }, { ctrl: 100050, rt: 2000 }] });
+  // Resultatfilen bär bara kontrollkoden, två gånger.
+  const franIof = tavling({
+    controls,
+    punches: [
+      { code: 50, rt: 1000, status: 'ok' },
+      { code: 50, rt: 2000, status: 'ok' },
+    ],
+  });
+  assert.deepEqual(namn(buildReceipt(franMop, 'sim', 99)), namn(buildReceipt(franIof, 'sim', 99)));
 });
