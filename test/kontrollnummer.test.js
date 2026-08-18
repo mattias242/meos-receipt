@@ -91,3 +91,60 @@ test('numret och SAKNAS överlever den smala kontrollkolumnen i PDF:en', () => {
   assert.ok(rad, 'kontrollraden saknas i PDF:en');
   assert.match(rad, /^50 SAKNAS/, `numret och markören ska överleva, fick: ${JSON.stringify(rad)}`);
 });
+
+/**
+ * Namnkonventionerna nedan är avlästa ur en skarp MeOS-sändning (RADIOTEST
+ * 2026-08-18, 500 löpare, 80 kontroller), inte påhittade:
+ *
+ *   - En kontroll arrangören inte döpt får sin egen kod som namn: id 54 -> "54".
+ *   - Förekommer koden flera gånger i banan numreras besöken: "79-1", "52-2".
+ *   - Andra och tredje besöket får ett eget internt id: kod + 100000 * (besök-1).
+ *     I filen: 32/100032 -> "32-1"/"32-2", 61/100061/200061 -> "61-1".."61-3".
+ *   - Bara de kontroller arrangören faktiskt döpt bär ett riktigt namn:
+ *     "Radio 1-1" (id 50), "Radio 1-2" (id 100050), "Radio 2", "Förvarning".
+ *
+ * Samtliga 76 odöpta kontroller i filen följde id % 100000 exakt.
+ */
+test('MeOS eget platshållarnamn blir inte ett suffix', () => {
+  const cmp = tavling({
+    controls: { 54: { name: '54' }, 79: { name: '79-1' } },
+    radios: [{ ctrl: 54, rt: 970 }, { ctrl: 79, rt: 1680 }],
+  });
+  // "54 (54)" och "79 (79-1)" säger löparen ingenting – namnet *är* koden.
+  assert.deepEqual(namn(buildReceipt(cmp, 'sim', 99)), ['54', '79', 'Mål']);
+});
+
+/**
+ * Det andra besöket på en kontroll har ett internt id i MeOS – 100052 för
+ * kontroll 52. Det numret står inte på någon skärm i skogen, så det får
+ * aldrig hamna på kvittot: löparen ska se 52 båda gångerna, och vilken
+ * passage det är framgår av ordningen i tabellen.
+ */
+test('andra besöket på en kontroll visar kontrollkoden, inte MeOS interna id', () => {
+  const cmp = tavling({
+    controls: {
+      52: { name: '52-1' },
+      100052: { name: '52-2' },
+      50: { name: 'Radio 1-1' },
+      100050: { name: 'Radio 1-2' },
+    },
+    radios: [
+      { ctrl: 52, rt: 1000 },
+      { ctrl: 50, rt: 2000 },
+      { ctrl: 100052, rt: 3000 },
+      { ctrl: 100050, rt: 4000 },
+    ],
+  });
+  const r = buildReceipt(cmp, 'sim', 99);
+  assert.deepEqual(namn(r), ['52', '50 (Radio 1-1)', '52', '50 (Radio 1-2)', 'Mål']);
+  // Kontrollnumret utåt är koden, inte det interna id:t.
+  assert.deepEqual(r.splits.map((s) => s.control), [52, 50, 52, 50, null]);
+});
+
+test('tredje besöket följer samma regel', () => {
+  const cmp = tavling({
+    controls: { 200061: { name: '61-3' } },
+    radios: [{ ctrl: 200061, rt: 1000 }],
+  });
+  assert.deepEqual(namn(buildReceipt(cmp, 'sim', 99)), ['61', 'Mål']);
+});

@@ -131,14 +131,22 @@ MeOS resultatautomat ─IOF XML 3.0──▶ POST /iof ──┘   (minne + JSON
 - **Protokollets facit ligger i `mop/`**: specifikationen
   (`MeOS Online Protocol.pdf`), schemat `mop.xsd` och Melins
   referensimplementation i PHP. Kolla där innan du gissar om MOP.
-- **Kontroller visas som `50 (Radio 1)` – numret först** (KRAV-19). Namnet är
-  arrangörens etikett och finns bara på de kontroller MeOS namngett; numret är
-  det löparen kan jämföra mot skärmen i skogen. Saknas namn visas bara numret.
-  `lib/mop.js` får därför inte återinföra platshållaren `Kontroll <id>` som
-  namn – den blir `77 (Kontroll 77)` på kvittot. `controlLabel` i
-  `lib/receipt.js` filtrerar bort den i redan sparad data. I PDF:en är
-  kontrollkolumnen 14 tecken: ryms inte allt faller namnet bort i sin helhet,
-  aldrig numret eller `SAKNAS`/`EXTRA` (`fitControl` i `lib/pdf.js`).
+- **Kontroller visas som `50 (Radio 1-1)` – koden först** (KRAV-19). Namnet är
+  arrangörens etikett och sätts bara på de kontroller hen döpt; koden är det
+  löparen kan jämföra mot skärmen i skogen.
+- **MeOS kontroll-id är inte kontrollkoden.** Passerar banan samma kontroll
+  flera gånger får varje besök ett eget id: kod + 100000 per extra besök
+  (52 → 100052 → 200052). `controlCode` i `lib/receipt.js` räknar tillbaka
+  det; utan den står `100052` på kvittot, ett nummer som inte finns i skogen.
+  Att felet var skarpt syntes inte i testerna – det upptäcktes genom att läsa
+  ett riktigt kvitto ur driftsatt data.
+- **MeOS platshållarnamn är inte namn.** En odöpt kontroll får sin egen kod
+  som namn (`54`, eller `79-1` vid flera passager), så namnet ska utelämnas
+  ur parentesen – annars blir det `54 (54)`. Samma sak för vår egen gamla
+  platshållare `Kontroll <id>`, som ligger kvar i redan sparad data;
+  `lib/mop.js` får inte återinföra den. I PDF:en är kontrollkolumnen 14
+  tecken: ryms inte allt faller namnet bort i sin helhet, aldrig koden eller
+  `SAKNAS`/`EXTRA` (`fitControl` i `lib/pdf.js`).
 - **Statuskoder** är MeOS numeriska koder (`STATUS_TEXT` i `lib/receipt.js`);
   IOF-status mappas mot dem via `IOF_STATUS_TO_STAT` i `lib/iof.js`.
 - **Sparningen blockerar eventloopen** och gör det med hela databasen, inte
