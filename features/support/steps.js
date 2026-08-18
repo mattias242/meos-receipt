@@ -566,6 +566,14 @@ Then(
   }
 );
 
+// KRAV-19: kontrollnumret är löparens enda koppling till skärmen i skogen, så
+// det slås upp på splitens kontrollnummer – inte på etiketten den fick.
+Then('visas sträckan för kontroll {int} som {string}', function (control, label) {
+  const split = this.res.body.splits.find((s) => s.control === control);
+  assert.ok(split, `kontroll ${control} saknas i kvittot`);
+  assert.equal(split.name, label);
+});
+
 Then('innehåller kvittot stämplingarna {string}', function (names) {
   const expected = names.split(',').map((s) => s.trim());
   assert.deepEqual(this.res.body.splits.map((s) => s.name), expected);

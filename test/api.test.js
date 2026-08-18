@@ -111,7 +111,7 @@ test('receipt by card number: result, placement, splits', async (t) => {
   assert.equal(r.result.after, '+2:30');
 
   assert.equal(r.splits.length, 3); // 2 radio + mål
-  assert.deepEqual(r.splits.map((s) => s.name), ['Radio 1', 'Förvarning', 'Mål']);
+  assert.deepEqual(r.splits.map((s) => s.name), ['150 (Radio 1)', '162 (Förvarning)', 'Mål']);
   assert.equal(r.splits[0].elapsed, '15:00');
   assert.equal(r.splits[0].clock, '10:15:00');
   assert.equal(r.splits[1].leg, '15:00'); // 18000-9000 tiondelar

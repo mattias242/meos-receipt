@@ -109,4 +109,4 @@ Egenskap: Resultatfiler från MeOS resultatautomat
 
   Scenario: Radiotider visas som tidigare när ingen resultatfil finns
     När jag hämtar kvittot för bricka 123456
-    Så innehåller kvittot sträckorna "Radio 1, Förvarning, Mål"
+    Så innehåller kvittot sträckorna "150 (Radio 1), 162 (Förvarning), Mål"

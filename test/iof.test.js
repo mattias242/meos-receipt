@@ -346,7 +346,7 @@ test('stämplingar följer inte med till en ny tävling på samma id', async (t)
   assert.equal(vecka2.competition.date, '2026-08-13');
   assert.deepEqual(
     vecka2.splits.map((s) => s.name),
-    ['Radio 1', 'Förvarning', 'Mål'],
+    ['150 (Radio 1)', '162 (Förvarning)', 'Mål'],
     'bara den nya tävlingens radiotider – inte förra veckans stämplingar'
   );
 });

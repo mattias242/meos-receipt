@@ -131,6 +131,14 @@ MeOS resultatautomat ─IOF XML 3.0──▶ POST /iof ──┘   (minne + JSON
 - **Protokollets facit ligger i `mop/`**: specifikationen
   (`MeOS Online Protocol.pdf`), schemat `mop.xsd` och Melins
   referensimplementation i PHP. Kolla där innan du gissar om MOP.
+- **Kontroller visas som `50 (Radio 1)` – numret först** (KRAV-19). Namnet är
+  arrangörens etikett och finns bara på de kontroller MeOS namngett; numret är
+  det löparen kan jämföra mot skärmen i skogen. Saknas namn visas bara numret.
+  `lib/mop.js` får därför inte återinföra platshållaren `Kontroll <id>` som
+  namn – den blir `77 (Kontroll 77)` på kvittot. `controlLabel` i
+  `lib/receipt.js` filtrerar bort den i redan sparad data. I PDF:en är
+  kontrollkolumnen 14 tecken: ryms inte allt faller namnet bort i sin helhet,
+  aldrig numret eller `SAKNAS`/`EXTRA` (`fitControl` i `lib/pdf.js`).
 - **Statuskoder** är MeOS numeriska koder (`STATUS_TEXT` i `lib/receipt.js`);
   IOF-status mappas mot dem via `IOF_STATUS_TO_STAT` i `lib/iof.js`.
 - **Sparningen blockerar eventloopen** och gör det med hela databasen, inte

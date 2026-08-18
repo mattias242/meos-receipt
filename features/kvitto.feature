@@ -1,5 +1,5 @@
 # language: sv
-# KRAV-3, KRAV-4, KRAV-7 (docs/KRAV.md)
+# KRAV-3, KRAV-4, KRAV-7, KRAV-19 (docs/KRAV.md)
 Egenskap: Digitalt kvitto via bricknummer
   Som löpare
   vill jag se min stämplingsutläsning i mobilen genom att ange mitt SportIdent-nummer
@@ -19,9 +19,16 @@ Egenskap: Digitalt kvitto via bricknummer
 
   Scenario: Kvittot innehåller sträcktider för radiokontroller och mål
     När jag hämtar kvittot för bricka 123456
-    Så innehåller kvittot sträckorna "Radio 1, Förvarning, Mål"
-    Och sträckan "Radio 1" har sträcktid "15:00", totaltid "15:00" och klocktid "10:15:00"
+    Så innehåller kvittot sträckorna "150 (Radio 1), 162 (Förvarning), Mål"
+    Och sträckan "150 (Radio 1)" har sträcktid "15:00", totaltid "15:00" och klocktid "10:15:00"
     Och sträckan "Mål" har sträcktid "5:00", totaltid "35:00" och klocktid "10:35:00"
+
+  # KRAV-19: numret är det löparen har på banbeskrivningen och kan jämföra mot
+  # skärmen i skogen. Namnet är arrangörens etikett och räcker inte ensamt.
+  Scenario: Kontrollerna visas med nummer före namn
+    När jag hämtar kvittot för bricka 123456
+    Så visas sträckan för kontroll 150 som "150 (Radio 1)"
+    Och visas sträckan för kontroll 162 som "162 (Förvarning)"
 
   Scenario: Löpare som startat men inte gått i mål
     När jag hämtar kvittot för bricka 111111
