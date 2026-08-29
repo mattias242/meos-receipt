@@ -138,6 +138,50 @@ Id:t är detsamma som du sätter i MeOS Onlineresultat. Adressen fungerar innan
 tävlingen börjat — sidan säger då att inga resultat kommit än — så den kan
 tryckas i förväg.
 
+## 7b. Klubbens egen adress (KRAV-20)
+
+Ett värdnamn kan bindas till en bestämd tävling, så att arrangören slipper ha
+tjänstens domän och ett tävlings-id i den tryckta adressen. `https://kvitto.klubben.se/`
+skickas då vidare till `/t/<tävlings-id>` — och löparen blir kvar på klubbens
+värdnamn hela vägen, även i kvittolänkar hon delar.
+
+Att lägga till ett värdnamn, en gång per klubb:
+
+1. **DNS.** Lägg upp värdnamnet i Cloudflare, proxat (orange moln), mot samma
+   adress som tjänstens övriga värdnamn. Ligger värdnamnet i en **annan zon** än
+   den vanliga: kontrollera att den zonen har SSL-läge **Full** — inte *Full
+   (strict)*. Origin-certet är självsignerat och har inget SAN för den domänen,
+   så strict ger 526.
+2. **Vhost.** Samma steg som avsnitt 4, med `server_name` satt till det nya
+   värdnamnet. Filen heter `http.<värdnamn>.conf`. Utan vhost svarar DSM med
+   Synology Web Stations standardsida, och allt ser ut att fungera utom att det
+   är fel sida.
+3. **Bindningen.** I `.env`:
+
+   ```
+   VARDNAMN_TAVLINGAR=kvitto.klubben.se=26082002
+   ```
+
+   Flera skiljs med komma. Starta om containern: `docker-compose up -d`.
+
+Inför **varje nytt arrangemang** räcker steg 3 — ändra tävlings-id:t i `.env`
+och starta om containern. Ingen vhost-ändring, ingen deploy.
+
+Kontrollera:
+
+```bash
+curl -sI https://kvitto.klubben.se | head -3
+# HTTP/2 302
+# location: /t/26082002        ← ska vara 302, aldrig 301
+```
+
+Vidareskickningen är medvetet **tillfällig**. En 301 cachas permanent i löparnas
+webbläsare, och nästa gång bindningen pekas om skulle de som varit med förra
+gången hamna på fel tävling utan att kunna göra något åt det.
+
+`/t/<tävlings-id>` fungerar oförändrat från alla värdnamn — bindningen är en
+genväg från förstasidan, inte en låsning av tjänsten.
+
 ## 8. Uppdatera en driftsatt tjänst
 
 Samma kedja som steg 2, följt av en ombyggnad:
