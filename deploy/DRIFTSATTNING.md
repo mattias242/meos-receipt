@@ -164,15 +164,31 @@ Att lägga till ett värdnamn, en gång per klubb:
 
    Flera skiljs med komma. Starta om containern: `docker-compose up -d`.
 
-Inför **varje nytt arrangemang** räcker steg 3 — ändra tävlings-id:t i `.env`
-och starta om containern. Ingen vhost-ändring, ingen deploy.
+### Inför varje nytt arrangemang
 
-Kontrollera:
+Bara bindningen behöver pekas om — ingen vhost-ändring, ingen deploy. Kör på
+servern, i projektkatalogen:
+
+```bash
+cd /volume2/web/meos-kvitto
+./tools/byt-tavling.sh 26091401
+```
+
+Skriptet skriver om raden i `.env`, startar om containern och kontrollerar mot
+containern direkt att `/` skickas vidare till `/t/26091401`. Är flera värdnamn
+bundna anges vilket: `./tools/byt-tavling.sh 26091401 kvitto.klubben.se`.
+
+**Redigera inte `.env` för hand.** En andra `VARDNAMN_TAVLINGAR`-rad ser riktig
+ut men gör att den ena tyst vinner över den andra, och det märks först när
+löparen står i målfållan och ser fel tävling. Skriptet skriver om den befintliga
+raden och städar bort en eventuell dubblett.
+
+Kontrollera utifrån när DNS och cache hunnit med:
 
 ```bash
 curl -sI https://kvitto.klubben.se | head -3
 # HTTP/2 302
-# location: /t/26082002        ← ska vara 302, aldrig 301
+# location: /t/26091401        ← ska vara 302, aldrig 301
 ```
 
 Vidareskickningen är medvetet **tillfällig**. En 301 cachas permanent i löparnas
