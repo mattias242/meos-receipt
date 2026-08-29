@@ -10,7 +10,6 @@ npm run dev                     # node --watch
 npm test                        # enhetstester (node --test, test/*.test.js)
 npm run bdd                     # BDD-scenarier (cucumber-js, features/*.feature)
 npm run verify                  # båda – definition of done
-npm run build:windows -- <url> [cmp]   # paket till MeOS-datorn i dist/windows/
 npm run build:exe:win           # fristående Windows-exe till dist/paket/ (reservspår)
 ```
 
