@@ -1,6 +1,7 @@
 import { Given, When, Then, After, setDefaultTimeout } from '@cucumber/cucumber';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { createApp } from '../../server.js';
@@ -295,6 +296,66 @@ Then('går sidans resurser att hämta från den adressen', async function () {
         'sidan blir tom fast servern svarar 200 på HTML:en'
     );
   }
+});
+
+// ---------------------------------------------------------------------------
+// KRAV-20: värdnamn bundet till tävling
+// ---------------------------------------------------------------------------
+
+/**
+ * `fetch` (undici) vägrar sätta Host-headern – den är förbjuden per spec. Här är
+ * värdnamnet hela poängen, så anropet går via node:http mot loopback med Host
+ * satt för hand, precis som proxyn skickar det i drift.
+ */
+function hamtaMedVardnamn(world, sokvag, vardnamn) {
+  const { port } = world.server.address();
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      { host: '127.0.0.1', port, path: sokvag, method: 'GET', headers: { Host: vardnamn } },
+      (res) => {
+        let text = '';
+        res.setEncoding('utf8');
+        res.on('data', (bit) => (text += bit));
+        res.on('end', () =>
+          resolve({
+            url: `http://${vardnamn}${sokvag}`,
+            status: res.statusCode,
+            typ: res.headers['content-type'] || '',
+            vidare: res.headers.location ?? null,
+            text,
+          })
+        );
+      }
+    );
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+Given('att värdnamnet {string} är bundet till tävling {int}', async function (vardnamn, cid) {
+  await start(this, { vardnamnTavlingar: new Map([[vardnamn, String(cid)]]) });
+});
+
+When('jag hämtar {string} med värdnamnet {string}', async function (sokvag, vardnamn) {
+  this.sida = await hamtaMedVardnamn(this, sokvag, vardnamn);
+});
+
+Then('skickas jag vidare till {string}', function (mal) {
+  assert.equal(this.sida.status, 302, `svaret var ${this.sida.status}, inte en vidareskickning`);
+  assert.equal(this.sida.vidare, mal);
+});
+
+/**
+ * Relativ adress = löparen blir kvar på det värdnamn som stod i PM. En absolut
+ * adress hade flyttat henne till tjänstens egen domän, och kvittolänkarna med.
+ */
+Then('är adressen jag skickas vidare till relativ', function () {
+  assert.equal(this.sida.status, 302);
+  assert.ok(this.sida.vidare, 'ingen Location-header alls');
+  assert.ok(
+    this.sida.vidare.startsWith('/'),
+    `Location var "${this.sida.vidare}" – en absolut adress tar löparen bort från klubbens värdnamn`
+  );
 });
 
 When('jag laddar ner kvittot som PDF för bricka {int}', async function (card) {

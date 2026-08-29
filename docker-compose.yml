@@ -31,6 +31,9 @@ services:
       TRUST_PROXY: ${TRUST_PROXY:-0}
       # Antal olika löpare en klient får se per kvart (KRAV-5). 0 = av.
       READ_LIMIT: ${READ_LIMIT:-1000}
+      # Värdnamn bundna till en tävling (KRAV-20), t.ex.
+      # kvitto.klubben.se=26082002. Pekas om inför varje arrangemang.
+      VARDNAMN_TAVLINGAR: ${VARDNAMN_TAVLINGAR:-}
       MAILGUN_SMTP: ${MAILGUN_SMTP:-}
       MAILGUN_USER: ${MAILGUN_USER:-}
       MAILGUN_PWD: ${MAILGUN_PWD:-}

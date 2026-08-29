@@ -29,6 +29,8 @@ export function createApp({
   mailer = null,
   emailRateLimit = {},
   trustProxy = false,
+  // KRAV-20: värdnamn → tävlings-id. Tom = ingen bindning, förstasidan som vanligt.
+  vardnamnTavlingar = new Map(),
   // KRAV-5: tak för hur många olika löpare en klient får se. 0 = av.
   // Testerna kör utan tak om de inte ber om ett; annars skulle varje test som
   // hämtar många kvitton bli beroende av taket.
@@ -398,6 +400,25 @@ export function createApp({
   // I den paketerade exe-filen (Node SEA) blir __dirname mappen där exen
   // ligger, så public/ levereras bredvid den. PUBLIC_DIR kan alltid överstyra.
   const publicDir = process.env.PUBLIC_DIR || path.join(__dirname, 'public');
+
+  /**
+   * Ett värdnamn bundet till en bestämd tävling (KRAV-20). Arrangören trycker
+   * klubbens egen adress i PM – kvitto.klubben.se – och löparen hamnar på
+   * tävlingens adress utan att se något tävlings-id.
+   *
+   * 302 och aldrig 301: bindningen pekas om inför varje arrangemang, och en
+   * permanent vidareskickning ligger kvar i löparnas webbläsare och visar förra
+   * tävlingens kvitton nästa gång. Adressen är relativ, så löparen blir kvar på
+   * klubbens värdnamn – annars försvinner den tryckta adressen ur adressfältet
+   * vid första klicket och delade kvittolänkar pekar tillbaka hit i stället.
+   *
+   * Bara förstasidan berörs. /t/<id> gäller alla värdnamn, även ett bundet.
+   */
+  app.get('/', (req, res, next) => {
+    const cid = vardnamnTavlingar.get(String(req.hostname || '').toLowerCase());
+    if (!cid) return next();
+    res.redirect(302, `/t/${cid}`);
+  });
 
   /**
    * En adress per tävling (KRAV-18), att trycka i PM eller sätta som QR-kod.

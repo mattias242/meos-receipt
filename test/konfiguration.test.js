@@ -31,6 +31,7 @@ const VARIABLER = {
   MAILGUN_PORT: { compose: true, env: false }, // valfri, dokumenterad i README
   MAIL_FROM: { compose: true, env: false },
   MAIL_REPLY_TO: { compose: true, env: false },
+  VARDNAMN_TAVLINGAR: { compose: true, env: true }, // KRAV-20: sätts per arrangemang
   PUBLIC_DIR: { compose: false, env: false }, // bara för den paketerade exe-filen
 };
 
