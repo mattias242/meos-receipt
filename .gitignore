@@ -5,6 +5,9 @@ dist/
 *.log
 .DS_Store
 
+# Redaktörens egen arbetsyta – sökvägar och inställningar är personliga.
+*.code-workspace
+
 # Skarpa resultatfiler från MeOS (innehåller personuppgifter) – testdata
 # hör hemma i test/fixtures/ i avidentifierad form. Samma sak för kvitton
 # hämtade från en skarp tävling: de bär löparens namn, klubb och tider.
