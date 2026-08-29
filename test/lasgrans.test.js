@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createReadLimiter } from '../lib/lasgrans.js';
-import { createApp } from '../server.js';
+import { withServer } from './helpers/server.js';
 import { MOP_COMPLETE, mopCompleteManyRunners } from './fixtures/mop.js';
 
 /**
@@ -52,17 +52,7 @@ test('max 0 stänger av taket helt', () => {
 
 // --- genom tjänsten ---------------------------------------------------------
 
-async function startServer(opts = {}) {
-  const app = createApp(opts);
-  const server = await new Promise((resolve) => {
-    const s = app.listen(0, () => resolve(s));
-  });
-  return { server, base: `http://127.0.0.1:${server.address().port}` };
-}
-
-test('en uppräkning av löpar-id stoppas', async (t) => {
-  const { server, base } = await startServer({ readLimit: 3 });
-  t.after(() => server.close());
+test('en uppräkning av löpar-id stoppas', { concurrency: true }, withServer(async ({ base }) => {
   await fetch(`${base}/meos`, {
     method: 'POST',
     headers: { 'content-type': 'application/xml', competition: '1' },
@@ -77,11 +67,9 @@ test('en uppräkning av löpar-id stoppas', async (t) => {
     koder.includes(429),
     `räknade upp fem löpare utan att stoppas: ${koder.join(', ')}`
   );
-});
+}, { readLimit: 3 }));
 
-test('en löpare som pollar sitt eget kvitto stoppas aldrig', async (t) => {
-  const { server, base } = await startServer({ readLimit: 3 });
-  t.after(() => server.close());
+test('en löpare som pollar sitt eget kvitto stoppas aldrig', { concurrency: true }, withServer(async ({ base }) => {
   await fetch(`${base}/meos`, {
     method: 'POST',
     headers: { 'content-type': 'application/xml', competition: '1' },
@@ -93,11 +81,9 @@ test('en löpare som pollar sitt eget kvitto stoppas aldrig', async (t) => {
     const res = await fetch(`${base}/api/receipt?card=123456`);
     assert.equal(res.status, 200, `stoppades vid uppdatering ${i + 1}`);
   }
-});
+}, { readLimit: 3 }));
 
-test('en bred träfflista räknas som de personer den visar', async (t) => {
-  const { server, base } = await startServer({ readLimit: 20 });
-  t.after(() => server.close());
+test('en bred träfflista räknas som de personer den visar', { concurrency: true }, withServer(async ({ base }) => {
   await fetch(`${base}/meos`, {
     method: 'POST',
     headers: { 'content-type': 'application/xml', competition: '1' },
@@ -117,11 +103,9 @@ test('en bred träfflista räknas som de personer den visar', async (t) => {
     [200, 200, 429],
     `smala sökningar i följd ska räknas ihop: ${koder.join(', ')}`
   );
-});
+}, { readLimit: 20 }));
 
-test('taket är avstängt som standard i testerna och går att stänga av', async (t) => {
-  const { server, base } = await startServer({ readLimit: 0 });
-  t.after(() => server.close());
+test('taket är avstängt som standard i testerna och går att stänga av', { concurrency: true }, withServer(async ({ base }) => {
   await fetch(`${base}/meos`, {
     method: 'POST',
     headers: { 'content-type': 'application/xml', competition: '1' },
@@ -130,4 +114,4 @@ test('taket är avstängt som standard i testerna och går att stänga av', asyn
   for (const id of [31, 32, 33, 34, 35]) {
     assert.notEqual((await fetch(`${base}/api/receipt?cmp=1&id=${id}`)).status, 429);
   }
-});
+}, { readLimit: 0 }));

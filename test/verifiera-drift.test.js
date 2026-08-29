@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { createApp } from '../server.js';
+import { withServer } from './helpers/server.js';
 
 /**
  * KRAV-13: tools/verifiera-drift.sh är det operatören kör dagen före en
@@ -23,14 +23,6 @@ const SKRIPT = path.join(
   'verifiera-drift.sh'
 );
 
-async function startServer(opts = {}) {
-  const app = createApp(opts);
-  const server = await new Promise((resolve) => {
-    const s = app.listen(0, () => resolve(s));
-  });
-  return { server, base: `http://127.0.0.1:${server.address().port}` };
-}
-
 /** Kör skriptet och returnerar { kod, ut }. */
 function kör(base, bricka) {
   return new Promise((klar) => {
@@ -42,10 +34,7 @@ function kör(base, bricka) {
   });
 }
 
-test('skriptet upptäcker att skrivändpunkterna står öppna', async (t) => {
-  const { server, base } = await startServer({ password: '' });
-  t.after(() => server.close());
-
+test('skriptet upptäcker att skrivändpunkterna står öppna', { concurrency: true }, withServer(async ({ base }) => {
   const { ut, kod } = await kör(base);
   assert.match(
     ut,
@@ -53,36 +42,27 @@ test('skriptet upptäcker att skrivändpunkterna står öppna', async (t) => {
     `skriptet nämner inte att vem som helst kan skicka in tävlingsdata:\n${ut}`
   );
   assert.notEqual(kod, 0, 'en öppen skrivändpunkt ska räknas som ett fel');
-});
+}, { password: '' }));
 
-test('med lösenord satt godkänns kontrollen', async (t) => {
-  const { server, base } = await startServer({ password: 'hemligt' });
-  t.after(() => server.close());
-
+test('med lösenord satt godkänns kontrollen', { concurrency: true }, withServer(async ({ base }) => {
   const { ut } = await kör(base);
   assert.match(ut, /✓.*[Ll]ösenord/, `kontrollen saknas eller föll:\n${ut}`);
   assert.doesNotMatch(ut, /✗.*[Ll]ösenord/);
-});
+}, { password: 'hemligt' }));
 
 /**
  * Sonden får inte lämna spår efter sig. Den skickar därför en zip-signatur:
  * den avvisas med NOZIP *efter* lösenordskontrollen, så svaret skiljer på
  * skyddad och öppen tjänst utan att någonting tolkas eller sparas.
  */
-test('kontrollen skapar ingen tävling och rör ingen data', async (t) => {
-  const { server, base } = await startServer({ password: 'hemligt' });
-  t.after(() => server.close());
-
+test('kontrollen skapar ingen tävling och rör ingen data', { concurrency: true }, withServer(async ({ base }) => {
   const före = await (await fetch(`${base}/api/competitions`)).json();
   await kör(base);
   const efter = await (await fetch(`${base}/api/competitions`)).json();
   assert.deepEqual(efter, före, 'kontrollen lämnade spår i tävlingsdatan');
-});
+}, { password: 'hemligt' }));
 
-test('skriptet kontrollerar att kvitton inte får cachas', async (t) => {
-  const { server, base } = await startServer({ password: 'hemligt' });
-  t.after(() => server.close());
-
+test('skriptet kontrollerar att kvitton inte får cachas', { concurrency: true }, withServer(async ({ base }) => {
   const { ut } = await kör(base);
   assert.match(
     ut,
@@ -90,16 +70,13 @@ test('skriptet kontrollerar att kvitton inte får cachas', async (t) => {
     `ingen kontroll av cachning – ett mellanled som sparar kvitton visar ` +
       `fel status och läcker personuppgifter:\n${ut}`
   );
-});
+}, { password: 'hemligt' }));
 
 /**
  * Skriptets egna anrop går genom samma proxy som löparnas, så det ser
  * varningen utan att behöva veta något om driftmiljön.
  */
-test('skriptet rapporterar en proxy utan TRUST_PROXY', async (t) => {
-  const { server, base } = await startServer({ password: 'hemligt' });
-  t.after(() => server.close());
-
+test('skriptet rapporterar en proxy utan TRUST_PROXY', { concurrency: true }, withServer(async ({ base }) => {
   // Härmar nginx eller Flys proxy framför tjänsten
   await fetch(`${base}/api/competitions`, { headers: { 'x-forwarded-for': '198.51.100.7' } });
 
@@ -109,7 +86,7 @@ test('skriptet rapporterar en proxy utan TRUST_PROXY', async (t) => {
     /TRUST_PROXY/,
     `skriptet nämner inte den felande inställningen:\n${ut}`
   );
-});
+}, { password: 'hemligt' }));
 
 /**
  * Bakom Cloudflare *och* nginx är det två led. Skriptets egna anrop går samma
@@ -117,10 +94,7 @@ test('skriptet rapporterar en proxy utan TRUST_PROXY', async (t) => {
  * arrangören ska gissa och upptäcka felet först när ingen kan mejla sitt
  * kvitto.
  */
-test('skriptet säger vad TRUST_PROXY borde vara', async (t) => {
-  const { server, base } = await startServer({ password: 'hemligt', trustProxy: 1 });
-  t.after(() => server.close());
-
+test('skriptet säger vad TRUST_PROXY borde vara', { concurrency: true }, withServer(async ({ base }) => {
   // Två led, som Cloudflare + nginx
   await fetch(`${base}/api/competitions`, {
     headers: { 'x-forwarded-for': '198.51.100.7, 203.0.113.1' },
@@ -128,4 +102,4 @@ test('skriptet säger vad TRUST_PROXY borde vara', async (t) => {
 
   const { ut } = await kör(base);
   assert.match(ut, /TRUST_PROXY till 2/, `skriptet säger inte vad det borde vara:\n${ut}`);
-});
+}, { password: 'hemligt', trustProxy: 1 }));

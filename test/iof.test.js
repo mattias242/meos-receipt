@@ -4,10 +4,10 @@ import { parseIofResultList, applyIof } from '../lib/iof.js';
 import { createStore } from '../lib/store.js';
 import { applyMop } from '../lib/mop.js';
 import { buildReceipt } from '../lib/receipt.js';
-import { createApp } from '../server.js';
 import { MOP_COMPLETE } from './fixtures/mop.js';
 import { IOF_RESULTLIST } from './fixtures/iof.js';
 import { mopStatus } from './helpers/mop-svar.js';
+import { withServer } from './helpers/server.js';
 
 // ---------------------------------------------------------------------------
 // Parsning (KRAV-9)
@@ -41,15 +41,6 @@ test('parseIofResultList: event, löpare, brickor och sträcktider', () => {
 // Sammanslagning och kvitto (KRAV-9, KRAV-10)
 // ---------------------------------------------------------------------------
 
-async function startServer(opts = {}) {
-  const app = createApp(opts);
-  const server = await new Promise((resolve) => {
-    const s = app.listen(0, () => resolve(s));
-  });
-  const base = `http://127.0.0.1:${server.address().port}`;
-  return { server, base };
-}
-
 async function post(base, url, xml, headers = {}) {
   const res = await fetch(`${base}${url}`, {
     method: 'POST',
@@ -60,9 +51,7 @@ async function post(base, url, xml, headers = {}) {
   return mopStatus(await res.text());
 }
 
-test('IOF-fil kompletterar MOP-data: alla stämplingar på kvittot', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
+test('IOF-fil kompletterar MOP-data: alla stämplingar på kvittot', { concurrency: true }, withServer(async ({ base }) => {
   assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
   assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
 
@@ -81,14 +70,12 @@ test('IOF-fil kompletterar MOP-data: alla stämplingar på kvittot', async (t) =
   // MOP-data ska inte skrivas över
   assert.equal(r.result.statusText, 'Godkänd');
   assert.equal(r.result.place, 2);
-});
+}));
 
 // KRAV-10: MeOS exporterar hela banan som Missing för den som brutit utan att
 // stämpla. En tabell med enbart streck säger löparen ingenting – då ska
 // sträcktabellen utelämnas helt. Har någon kontroll en tid visas den som vanligt.
-test('utgått utan stämplingar ger ingen sträcktabell', async (t) => {
-  const { base, server } = await startServer();
-  t.after(() => server.close());
+test('utgått utan stämplingar ger ingen sträcktabell', { concurrency: true }, withServer(async ({ base }) => {
   assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
   assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
 
@@ -96,11 +83,9 @@ test('utgått utan stämplingar ger ingen sträcktabell', async (t) => {
   assert.equal(r.result.statusText, 'Utgått');
   assert.deepEqual(r.splits, [], 'en tabell med bara streck ska inte visas');
   assert.equal(r.result.startTime, '10:00:00', 'löparen startade faktiskt');
-});
+}));
 
-test('utgått efter några kontroller behåller sina stämplingar', async (t) => {
-  const { base, server } = await startServer();
-  t.after(() => server.close());
+test('utgått efter några kontroller behåller sina stämplingar', { concurrency: true }, withServer(async ({ base }) => {
   assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
   assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
 
@@ -110,16 +95,14 @@ test('utgått efter några kontroller behåller sina stämplingar', async (t) =>
   assert.equal(r.splits[0].elapsed, '7:00');
   assert.equal(r.splits[2].status, 'missing');
   assert.equal(r.splits.at(-1).name, '45', 'ingen målrad utan måltid');
-});
+}));
 
 // KRAV-10: en gammal stämpling i brickan (eller en kontrollenhet med fel
 // klocka) ger en sträcktid långt utanför loppet. Den ska inte visas som tid,
 // och nästa sträcka ska räknas från föregående giltiga stämpling – annars
 // blir både den raden och nästa obrukbara. I den skarpa Vinterrace-filen
 // drabbade det 40 av 110 löpare.
-test('stämplingstid utanför loppet ignoreras utan att förstöra nästa sträcka', async (t) => {
-  const { base, server } = await startServer();
-  t.after(() => server.close());
+test('stämplingstid utanför loppet ignoreras utan att förstöra nästa sträcka', { concurrency: true }, withServer(async ({ base }) => {
   assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
   assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
 
@@ -137,7 +120,7 @@ test('stämplingstid utanför loppet ignoreras utan att förstöra nästa sträc
   assert.equal(r.splits[2].elapsed, '15:00');
   assert.equal(r.splits[3].leg, '10:00');   // 1500 - 900
   assert.equal(r.splits.at(-1).leg, '5:00'); // Mål: 1800 - 1500
-});
+}));
 
 /**
  * KRAV-10: en kontrollenhet vars klocka går fel *inom* loppets tidsfönster.
@@ -153,9 +136,7 @@ test('stämplingstid utanför loppet ignoreras utan att förstöra nästa sträc
  * majoriteten hade i det verkliga fallet behållit just de felaktiga tiderna:
  * på Orange-banan var de felställda enheterna i majoritet.
  */
-test('stämplingstid som motsäger banordningen visas inte som sträcktid', async (t) => {
-  const { base, server } = await startServer();
-  t.after(() => server.close());
+test('stämplingstid som motsäger banordningen visas inte som sträcktid', { concurrency: true }, withServer(async ({ base }) => {
   assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
   assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
 
@@ -183,14 +164,12 @@ test('stämplingstid som motsäger banordningen visas inte som sträcktid', asyn
   assert.equal(r.splits.at(-1).leg, '2:30', 'målsträckan räknas från 50');
 
   assert.match(r.notes.unreliableTimes, /klocka/i, 'streckraderna ska förklaras');
-});
+}));
 
 // Extra stämplingar uppstår inte under loppet – de ligger kvar i pinnen sedan
 // en tidigare aktivitet därför att löparen missat TÖM före start. Utan
 // förklaring läser löparen dem som att hon sprungit fel.
-test('extra stämplingar ger ett tips om TÖM, annars inget', async (t) => {
-  const { base, server } = await startServer();
-  t.after(() => server.close());
+test('extra stämplingar ger ett tips om TÖM, annars inget', { concurrency: true }, withServer(async ({ base }) => {
   assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
   assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
 
@@ -201,7 +180,7 @@ test('extra stämplingar ger ett tips om TÖM, annars inget', async (t) => {
   const utanExtra = await (await fetch(`${base}/api/receipt?card=111111`)).json();
   assert.ok(!utanExtra.splits.some((s) => s.status === 'additional'));
   assert.ok(!utanExtra.notes?.extraPunches, 'inget tips utan extra stämplingar');
-});
+}));
 
 /**
  * En felställd enhetsklocka drabbar alla som passerar kontrollen, inte en
@@ -267,9 +246,7 @@ test('en kontrollenhet som stämplar efter målgång pekas ut utan reservation',
   assert.ok(!/\b31\b/.test(varning), `den felfria enheten ska inte nämnas: ${varning}`);
 });
 
-test('IOF-fil fyller i status och måltid för löpare utan MOP-resultat', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
+test('IOF-fil fyller i status och måltid för löpare utan MOP-resultat', { concurrency: true }, withServer(async ({ base }) => {
   await post(base, '/meos', MOP_COMPLETE);
   await post(base, '/iof', IOF_RESULTLIST);
 
@@ -281,11 +258,9 @@ test('IOF-fil fyller i status och måltid för löpare utan MOP-resultat', async
   const missing = r.splits.find((s) => s.name === '45');
   assert.equal(missing.status, 'missing');
   assert.equal(missing.elapsed, '');
-});
+}));
 
-test('IOF-fil skapar löpare som saknas i MOP-datat', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
+test('IOF-fil skapar löpare som saknas i MOP-datat', { concurrency: true }, withServer(async ({ base }) => {
   await post(base, '/meos', MOP_COMPLETE);
   await post(base, '/iof', IOF_RESULTLIST);
 
@@ -296,16 +271,14 @@ test('IOF-fil skapar löpare som saknas i MOP-datat', async (t) => {
   assert.equal(r.runner.club, 'OK Skogen');
   assert.equal(r.runner.class, 'D21');
   assert.equal(r.result.statusText, 'Godkänd');
-});
+}));
 
 // KRAV-2/KRAV-9: MeOS skickar en ny MOPComplete varje gång Onlineresultat
 // startas om. Den nollställer MOP-datat, men stämplingarna kommer från
 // resultatfilen och har en egen källa – utan detta tappar kvittot alla
 // stämplingar tills uppladdningsskriptet hinner skicka filen igen, och för
 // gott om tävlingen redan är avslutad.
-test('stämplingar från resultatfilen överlever en ny MOPComplete', async (t) => {
-  const { base, server } = await startServer();
-  t.after(() => server.close());
+test('stämplingar från resultatfilen överlever en ny MOPComplete', { concurrency: true }, withServer(async ({ base }) => {
   assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
   assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
 
@@ -322,14 +295,12 @@ test('stämplingar från resultatfilen överlever en ny MOPComplete', async (t) 
   );
   assert.equal(efter.splits[2].status, 'additional');
   assert.equal(efter.splits[0].leg, '7:30');
-});
+}));
 
 // Stämplingar bevaras över en MOPComplete (KRAV-2), men bara inom samma
 // tävling. Tävlings-id återanvänds ofta mellan tävlingar, och då skulle förra
 // veckans sträcktider annars följa med in på nästa veckas kvitton.
-test('stämplingar följer inte med till en ny tävling på samma id', async (t) => {
-  const { base, server } = await startServer();
-  t.after(() => server.close());
+test('stämplingar följer inte med till en ny tävling på samma id', { concurrency: true }, withServer(async ({ base }) => {
   assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
   assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
 
@@ -349,11 +320,9 @@ test('stämplingar följer inte med till en ny tävling på samma id', async (t)
     ['150 (Radio 1)', '162 (Förvarning)', 'Mål'],
     'bara den nya tävlingens radiotider – inte förra veckans stämplingar'
   );
-});
+}));
 
-test('MOPComplete nollställer fortfarande MOP-ägd data', async (t) => {
-  const { base, server } = await startServer();
-  t.after(() => server.close());
+test('MOPComplete nollställer fortfarande MOP-ägd data', { concurrency: true }, withServer(async ({ base }) => {
   assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
   assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
 
@@ -364,15 +333,13 @@ test('MOPComplete nollställer fortfarande MOP-ägd data', async (t) => {
   );
   const res = await fetch(`${base}/api/receipt?card=123456`);
   assert.equal(res.status, 404, 'löparen fanns inte i den nya sändningen');
-});
+}));
 
 // KRAV-9: en löpare som bara finns i resultatfilen får ett påhittat id. Kommer
 // samma bricka senare från MeOS – vanligt vid efteranmälan – fanns hen plötsligt
 // två gånger, och kvitto-API:t svarade med en "delad bricka"-lista med två
 // identiska namn där den ena posten hade stämplingarna och den andra tiderna.
-test('efteranmäld löpare ersätter platshållaren från resultatfilen', async (t) => {
-  const { base, server } = await startServer();
-  t.after(() => server.close());
+test('efteranmäld löpare ersätter platshållaren från resultatfilen', { concurrency: true }, withServer(async ({ base }) => {
   assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
   assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
 
@@ -396,13 +363,11 @@ test('efteranmäld löpare ersätter platshållaren från resultatfilen', async 
     ['31', 'Mål'],
     'och ärva stämplingarna från resultatfilen'
   );
-});
+}));
 
 // Löparen kan ha delat sin kvittolänk innan MeOS-datat kom – länken bygger på
 // löpar-id, och när platshållaren ersätts skulle den annars ge 404.
-test('delad länk fungerar efter att platshållaren ersatts', async (t) => {
-  const { base, server } = await startServer();
-  t.after(() => server.close());
+test('delad länk fungerar efter att platshållaren ersatts', { concurrency: true }, withServer(async ({ base }) => {
   assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
 
   const före = await (await fetch(`${base}/api/receipt?card=333333`)).json();
@@ -423,13 +388,11 @@ test('delad länk fungerar efter att platshållaren ersatts', async (t) => {
   const efter = await res.json();
   assert.equal(efter.runner.name, 'Frida Frisk');
   assert.equal(efter.runner.id, 55, 'och leda till den aktuella posten');
-});
+}));
 
 // MeOS skickar en ny MOPComplete varje gång Onlineresultat startas om. Utan
 // att kopplingen från ersatta id:n bevaras dör den delade länken där.
-test('delad länk överlever också en omstart av Onlineresultat', async (t) => {
-  const { base, server } = await startServer();
-  t.after(() => server.close());
+test('delad länk överlever också en omstart av Onlineresultat', { concurrency: true }, withServer(async ({ base }) => {
   assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
 
   const delatId = (await (await fetch(`${base}/api/receipt?card=333333`)).json()).runner.id;
@@ -450,11 +413,9 @@ test('delad länk överlever också en omstart av Onlineresultat', async (t) => 
   const res = await fetch(`${base}/api/receipt?cmp=1&id=${delatId}`);
   assert.equal(res.status, 200, 'länken ska fungera även efter MOPComplete');
   assert.equal((await res.json()).runner.id, 55);
-});
+}));
 
-test('kopplingen följer inte med till en ny tävling på samma id', async (t) => {
-  const { base, server } = await startServer();
-  t.after(() => server.close());
+test('kopplingen följer inte med till en ny tävling på samma id', { concurrency: true }, withServer(async ({ base }) => {
   assert.equal(await post(base, '/iof', IOF_RESULTLIST), 'OK');
   const delatId = (await (await fetch(`${base}/api/receipt?card=333333`)).json()).runner.id;
   const diff = `<?xml version="1.0"?><MOPDiff xmlns="http://www.melin.nu/mop">
@@ -470,11 +431,9 @@ test('kopplingen följer inte med till en ny tävling på samma id', async (t) =
 
   const res = await fetch(`${base}/api/receipt?cmp=1&id=${delatId}`);
   assert.equal(res.status, 404, 'förra tävlingens länkar hör inte hemma i den nya');
-});
+}));
 
-test('två löpare som verkligen delar bricka påverkas inte', async (t) => {
-  const { base, server } = await startServer();
-  t.after(() => server.close());
+test('två löpare som verkligen delar bricka påverkas inte', { concurrency: true }, withServer(async ({ base }) => {
   assert.equal(await post(base, '/meos', MOP_COMPLETE), 'OK');
   // Två MeOS-löpare med samma bricka är legitimt (KRAV-7)
   const diff = `<?xml version="1.0"?><MOPDiff xmlns="http://www.melin.nu/mop">
@@ -485,7 +444,7 @@ test('två löpare som verkligen delar bricka påverkas inte', async (t) => {
   const res = await fetch(`${base}/api/receipt?card=123456`);
   assert.equal(res.status, 300, 'delad bricka ska fortfarande ge en valbar lista');
   assert.equal((await res.json()).alternatives.length, 2);
-});
+}));
 
 // KRAV-9: pekar uppladdningsprogrammet på förra tävlingens fil matchar
 // brickorna – det är samma löpare – och stämplingarna skrivs över med fel
@@ -606,12 +565,10 @@ test('helt tom resultatlista tas emot utan att skapa något', () => {
   assert.equal(store.competitions[1].info.name, 'Testet', 'tävlingens namn tas ändå emot');
 });
 
-test('IOF-endpoint kräver rätt lösenord', async (t) => {
-  const { server, base } = await startServer({ password: 'hemligt' });
-  t.after(() => server.close());
+test('IOF-endpoint kräver rätt lösenord', { concurrency: true }, withServer(async ({ base }) => {
   assert.equal(await post(base, '/iof', IOF_RESULTLIST, { pwd: 'fel' }), 'BADPWD');
   assert.equal(await post(base, '/iof', IOF_RESULTLIST, { pwd: 'hemligt' }), 'OK');
-});
+}, { password: 'hemligt' }));
 
 /**
  * KRAV-9: en löpare utan namn betyder att något är fel uppströms.

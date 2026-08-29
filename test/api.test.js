@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createApp } from '../server.js';
 import {
   MOP_COMPLETE,
   MOP_DIFF_CARL as MOP_DIFF,
@@ -10,15 +9,7 @@ import {
 } from './fixtures/mop.js';
 import { IOF_RESULTLIST } from './fixtures/iof.js';
 import { mopStatus } from './helpers/mop-svar.js';
-
-async function startServer(opts = {}) {
-  const app = createApp(opts);
-  const server = await new Promise((resolve) => {
-    const s = app.listen(0, () => resolve(s));
-  });
-  const base = `http://127.0.0.1:${server.address().port}`;
-  return { server, base };
-}
+import { withServer } from './helpers/server.js';
 
 async function postMop(base, xml, headers = {}) {
   const res = await fetch(`${base}/meos`, {
@@ -29,22 +20,17 @@ async function postMop(base, xml, headers = {}) {
   return mopStatus(await res.text());
 }
 
-test('MOP endpoint validates competition id and password', async (t) => {
-  const { server, base } = await startServer({ password: 'hemligt' });
-  t.after(() => server.close());
-
+test('MOP endpoint validates competition id and password', { concurrency: true }, withServer(async ({ base }) => {
   assert.equal(await postMop(base, MOP_COMPLETE, { competition: '' }), 'BADCMP');
   assert.equal(await postMop(base, MOP_COMPLETE, { pwd: 'fel' }), 'BADPWD');
   assert.equal(await postMop(base, MOP_COMPLETE, { pwd: 'hemligt' }), 'OK');
-});
+}, { password: 'hemligt' }));
 
 // MeOS sänder inte om okomprimerat, den avbryter – "Packa stora filer" måste
 // vara omarkerad i Onlineresultat. Vi svarar NOZIP så att felet blir tydligt.
-test('zip payloads get NOZIP', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
+test('zip payloads get NOZIP', { concurrency: true }, withServer(async ({ base }) => {
   assert.equal(await postMop(base, 'PK\x03\x04zipdata'), 'NOZIP');
-});
+}));
 
 /**
  * KRAV-1: MeOS XML-parsar svaret och letar efter elementet `MOPStatus`. Ett
@@ -53,10 +39,7 @@ test('zip payloads get NOZIP', async (t) => {
  * måste hållas. Detta är kontraktet i protokollspecifikationen och i Melins
  * referensimplementation (`mop/functions.php`).
  */
-test('MOP endpoint answers MOPStatus XML, not plain text', async (t) => {
-  const { server, base } = await startServer({ password: 'hemligt' });
-  t.after(() => server.close());
-
+test('MOP endpoint answers MOPStatus XML, not plain text', { concurrency: true }, withServer(async ({ base }) => {
   const svara = async (headers) => {
     const res = await fetch(`${base}/meos`, {
       method: 'POST',
@@ -73,14 +56,11 @@ test('MOP endpoint answers MOPStatus XML, not plain text', async (t) => {
   // Även avvisade sändningar måste packas in, annars ser MeOS inte varför.
   const fel = await svara({ pwd: 'fel' });
   assert.equal(fel.kropp, '<?xml version="1.0"?><MOPStatus status="BADPWD"></MOPStatus>');
-});
+}, { password: 'hemligt' }));
 
 // KRAV-9/KRAV-11: /iof ingår inte i MOP. Klienten är vårt eget
 // uppladdningsprogram, som matchar på strängen OK, så den svarar ren text.
-test('IOF endpoint keeps the plain text reply the upload script matches on', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
-
+test('IOF endpoint keeps the plain text reply the upload script matches on', { concurrency: true }, withServer(async ({ base }) => {
   const res = await fetch(`${base}/iof`, {
     method: 'POST',
     headers: { 'content-type': 'application/xml', competition: '1' },
@@ -88,11 +68,9 @@ test('IOF endpoint keeps the plain text reply the upload script matches on', asy
   });
   assert.equal(await res.text(), 'OK');
   assert.match(res.headers.get('content-type'), /^text\/plain/);
-});
+}));
 
-test('receipt by card number: result, placement, splits', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
+test('receipt by card number: result, placement, splits', { concurrency: true }, withServer(async ({ base }) => {
   assert.equal(await postMop(base, MOP_COMPLETE), 'OK');
 
   const res = await fetch(`${base}/api/receipt?card=123456`);
@@ -116,11 +94,9 @@ test('receipt by card number: result, placement, splits', async (t) => {
   assert.equal(r.splits[0].clock, '10:15:00');
   assert.equal(r.splits[1].leg, '15:00'); // 18000-9000 tiondelar
   assert.equal(r.splits[2].leg, '5:00');  // mål 21000-18000
-});
+}));
 
-test('status texts: on course and DNF', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
+test('status texts: on course and DNF', { concurrency: true }, withServer(async ({ base }) => {
   await postMop(base, MOP_COMPLETE);
 
   let r = await (await fetch(`${base}/api/receipt?card=111111`)).json();
@@ -129,14 +105,12 @@ test('status texts: on course and DNF', async (t) => {
 
   r = await (await fetch(`${base}/api/receipt?card=222222`)).json();
   assert.equal(r.result.statusText, 'Utgått');
-});
+}));
 
 // KRAV-4: den som inte kommit till start ska inte visas med en starttid,
 // även om MeOS har en tilldelad sådan – annars ser kvittot ut som en
 // genomförd start. Den som brutit efter start behåller sin.
-test('starttid visas bara för den som faktiskt startat', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
+test('starttid visas bara för den som faktiskt startat', { concurrency: true }, withServer(async ({ base }) => {
   await postMop(base, MOP_COMPLETE);
 
   const ejStart = await (await fetch(`${base}/api/receipt?card=444444`)).json();
@@ -150,13 +124,11 @@ test('starttid visas bara för den som faktiskt startat', async (t) => {
 
   const godkand = await (await fetch(`${base}/api/receipt?card=123456`)).json();
   assert.equal(godkand.result.startTime, '10:00:00');
-});
+}));
 
 // KRAV-5: en bred sökning matchade hela deltagarfältet och skickade det i ett
 // svar – vid 2000 löpare 240 kB, och en träfflista ingen kan hitta sig själv i.
-test('för bred sökning avvisas i stället för att lista alla', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
+test('för bred sökning avvisas i stället för att lista alla', { concurrency: true }, withServer(async ({ base }) => {
   await postMop(base, mopCompleteManyRunners(150));
 
   const res = await fetch(`${base}/api/search?q=${encodeURIComponent('Löpare')}`);
@@ -170,32 +142,28 @@ test('för bred sökning avvisas i stället för att lista alla', async (t) => {
   const hits = await ok.json();
   assert.equal(hits.length, 1);
   assert.equal(hits[0].name, 'Löpare 42 Efternamn');
-});
+}));
 
-test('sökning strax under gränsen listas som vanligt', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
+test('sökning strax under gränsen listas som vanligt', { concurrency: true }, withServer(async ({ base }) => {
   await postMop(base, mopCompleteManyRunners(100));
 
   const res = await fetch(`${base}/api/search?q=${encodeURIComponent('Löpare')}`);
   assert.equal(res.status, 200);
   assert.equal((await res.json()).length, 100);
-});
+}));
 
 // KRAV-4: slutar MeOS skicka – nätet på tävlingsdatorn dör, eller
 // Onlineresultat stängs av misstag – fryser kvittona i det läge de var. En
 // löpare som gått i mål och ser "Ute på banan" i en timme tror att hennes
 // stämpling inte registrerats. Kvittot ska säga hur gammalt underlaget är.
-test('kvittot berättar hur gammal tävlingsdatan är', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
+test('kvittot berättar hur gammal tävlingsdatan är', { concurrency: true }, withServer(async ({ base }) => {
   await postMop(base, MOP_COMPLETE);
 
   const r = await (await fetch(`${base}/api/receipt?card=111111`)).json();
   assert.equal(typeof r.updatedAgeSeconds, 'number', 'åldern ska räknas av servern');
   assert.ok(r.updatedAgeSeconds < 5, `nyss inläst data, fick ${r.updatedAgeSeconds} s`);
   assert.equal(r.result.statusText, 'Ute på banan');
-});
+}));
 
 test('åldern räknas från senast mottagna data', async (t) => {
   const { createStore } = await import('../lib/store.js');
@@ -215,10 +183,7 @@ test('åldern räknas från senast mottagna data', async (t) => {
 
 // Felmeddelandena är det enda en löpare med en trasig länk har att gå på, och
 // de måste skilja på "du angav inget att söka med" och "jag hittade ingen".
-test('kvitto-API:t förklarar vad som saknas', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
-
+test('kvitto-API:t förklarar vad som saknas', { concurrency: true }, withServer(async ({ base }) => {
   // Innan någon tävling kommit in är det tjänsten som saknar data
   let res = await fetch(`${base}/api/receipt?card=123456`);
   assert.equal(res.status, 404);
@@ -237,11 +202,9 @@ test('kvitto-API:t förklarar vad som saknas', async (t) => {
   res = await fetch(`${base}/api/receipt?card=999999`);
   assert.equal(res.status, 404);
   assert.match((await res.json()).error, /999999/, 'felet ska nämna vad som söktes');
-});
+}));
 
-test('MOPDiff updates a competitor and marks result preliminary', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
+test('MOPDiff updates a competitor and marks result preliminary', { concurrency: true }, withServer(async ({ base }) => {
   await postMop(base, MOP_COMPLETE);
   assert.equal(await postMop(base, MOP_DIFF), 'OK');
 
@@ -251,11 +214,9 @@ test('MOPDiff updates a competitor and marks result preliminary', async (t) => {
   assert.equal(r.result.time, '30:00');
   assert.equal(r.result.place, null);
   assert.equal(r.result.prelPlace, 1); // snabbast i H21
-});
+}));
 
-test('search by name and unknown card gives 404', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
+test('search by name and unknown card gives 404', { concurrency: true }, withServer(async ({ base }) => {
   await postMop(base, MOP_COMPLETE);
 
   const hits = await (await fetch(`${base}/api/search?q=anna`)).json();
@@ -266,12 +227,10 @@ test('search by name and unknown card gives 404', async (t) => {
 
   const res = await fetch(`${base}/api/receipt?card=999999`);
   assert.equal(res.status, 404);
-});
+}));
 
 // KRAV-6: brickan hittas i den senaste tävling där den förekommer
-test('card found in older competition when the latest lacks it', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
+test('card found in older competition when the latest lacks it', { concurrency: true }, withServer(async ({ base }) => {
   await postMop(base, MOP_COMPLETE);
   await postMop(base, mopCompleteMinimal({ name: 'Nyare tävlingen', date: '2026-09-01' }), {
     competition: '2',
@@ -282,12 +241,10 @@ test('card found in older competition when the latest lacks it', async (t) => {
   const r = await res.json();
   assert.equal(r.runner.name, 'Anna Andersson');
   assert.equal(r.competition.name, 'Testtävlingen');
-});
+}));
 
 // KRAV-7: delad bricka ska ge en valbar träfflista, inte en gissning
-test('shared card gives 300 with alternatives', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
+test('shared card gives 300 with alternatives', { concurrency: true }, withServer(async ({ base }) => {
   await postMop(base, MOP_COMPLETE);
   await postMop(base, mopDiffExtraRunner({ name: 'Erik Ek', card: 123456, cls: 2 }));
 
@@ -299,18 +256,16 @@ test('shared card gives 300 with alternatives', async (t) => {
     body.alternatives.map((h) => h.name).sort(),
     ['Anna Andersson', 'Erik Ek']
   );
-});
+}));
 
-test('MOPComplete replaces earlier data for the competition', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
+test('MOPComplete replaces earlier data for the competition', { concurrency: true }, withServer(async ({ base }) => {
   await postMop(base, MOP_COMPLETE);
   await postMop(base, MOP_COMPLETE.replace('Testtävlingen', 'Omstartad tävling'));
 
   const list = await (await fetch(`${base}/api/competitions`)).json();
   assert.equal(list.length, 1);
   assert.equal(list[0].name, 'Omstartad tävling');
-});
+}));
 
 /**
  * KRAV-6/KRAV-14: kvittosidan skriver `?cmp=N&id=M` i adressfältet, och
@@ -321,10 +276,7 @@ test('MOPComplete replaces earlier data for the competition', async (t) => {
  * Löpar-id är MeOS interna och återanvänds mellan tävlingar. Länken visade
  * alltså en främmande människas kvitto, med namn, klubb, klass och tider.
  */
-test('en länk till en tävling som inte finns visar inte någon annans kvitto', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
-
+test('en länk till en tävling som inte finns visar inte någon annans kvitto', { concurrency: true }, withServer(async ({ base }) => {
   await postMop(base, MOP_COMPLETE);
   // Samma interna id (31), en annan människa – så ser nästa tävling ut
   await postMop(base, MOP_COMPLETE.replace(/Anna Andersson/g, 'Berit Bengtsson')
@@ -342,20 +294,18 @@ test('en länk till en tävling som inte finns visar inte någon annans kvitto',
   );
   assert.equal(res.status, 404);
   assert.match(body.error, /99/, 'felet ska säga vilken tävling som saknas');
-});
+}));
 
 /**
  * För en bricka gäller motsatsen: brickan identifierar personen, så att leta
  * vidare i äldre tävlingar är precis vad KRAV-6 vill ha.
  */
-test('en bricka söks vidare i andra tävlingar även om cmp är borta', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
+test('en bricka söks vidare i andra tävlingar även om cmp är borta', { concurrency: true }, withServer(async ({ base }) => {
   await postMop(base, MOP_COMPLETE);
 
   const r = await (await fetch(`${base}/api/receipt?cmp=99&card=123456`)).json();
   assert.equal(r.runner.name, 'Anna Andersson');
-});
+}));
 
 /**
  * KRAV-13: kvittona hämtas över mobildata, ofta genom operatörsproxyer, och
@@ -367,9 +317,7 @@ test('en bricka söks vidare i andra tävlingar även om cmp är borta', async (
  * är exakt det frusna kvitto som updatedAgeSeconds finns för att varna om –
  * men åldern räknas på servern, så ett cachat svar ljuger även om den.
  */
-test('API-svar får inte cachas av mellanled', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
+test('API-svar får inte cachas av mellanled', { concurrency: true }, withServer(async ({ base }) => {
   await postMop(base, MOP_COMPLETE);
 
   for (const väg of [
@@ -387,7 +335,7 @@ test('API-svar får inte cachas av mellanled', async (t) => {
       `${väg} saknar Cache-Control: no-store`
     );
   }
-});
+}));
 
 /**
  * KRAV-13: kvittosidans egna filer innehåller inga personuppgifter och får
@@ -400,10 +348,7 @@ test('API-svar får inte cachas av mellanled', async (t) => {
  * servern och svaret var rätt. Med 60 sekunder och ETag kvar kostar en
  * oförändrad fil en 304 i stället för en omsändning.
  */
-test('kvittosidans egna filer cachas kort och revalideras', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
-
+test('kvittosidans egna filer cachas kort och revalideras', { concurrency: true }, withServer(async ({ base }) => {
   for (const väg of ['/app.js', '/styles.css', '/index.html']) {
     const res = await fetch(base + väg);
     assert.equal(res.status, 200, `${väg} svarade ${res.status}`);
@@ -424,7 +369,7 @@ test('kvittosidans egna filer cachas kort och revalideras', async (t) => {
 
     assert.ok(res.headers.get('etag'), `${väg} saknar ETag och kan inte revalideras billigt`);
   }
-});
+}));
 
 /**
  * Utan detta vore den korta cachetiden dyr: varje besök skulle hämta hela
@@ -435,10 +380,7 @@ test('kvittosidans egna filer cachas kort och revalideras', async (t) => {
  * och per HTTP-specen ska ge 200 – utan den här raden mäter testet
  * testklientens beteende i stället för serverns.
  */
-test('en oförändrad fil revalideras med 304', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
-
+test('en oförändrad fil revalideras med 304', { concurrency: true }, withServer(async ({ base }) => {
   const första = await fetch(`${base}/app.js`);
   const etag = första.headers.get('etag');
   assert.ok(etag);
@@ -447,7 +389,7 @@ test('en oförändrad fil revalideras med 304', async (t) => {
     headers: { 'if-none-match': etag, 'cache-control': 'max-age=0' },
   });
   assert.equal(andra.status, 304, 'oförändrad fil ska ge 304, inte en ny omsändning');
-});
+}));
 
 /**
  * KRAV-3: en bana kan ta över en timme.
@@ -457,9 +399,7 @@ test('en oförändrad fil revalideras med 304', async (t) => {
  * 45 teckens bredd är avstämda mot just det breda fallet – men själva
  * formatet hade inget test, så antagandet kunde ha ändrats under dem.
  */
-test('en löptid över en timme skrivs som timmar, inte som 125 minuter', async (t) => {
-  const { server, base } = await startServer();
-  t.after(() => server.close());
+test('en löptid över en timme skrivs som timmar, inte som 125 minuter', { concurrency: true }, withServer(async ({ base }) => {
   await postMop(base, MOP_COMPLETE);
 
   const tider = {
@@ -473,4 +413,4 @@ test('en löptid över en timme skrivs som timmar, inte som 125 minuter', async 
     const r = await (await fetch(`${base}/api/receipt?card=123456`)).json();
     assert.equal(r.result.time, väntat, `rt=${rt} tiondelar`);
   }
-});
+}));
