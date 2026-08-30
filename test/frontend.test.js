@@ -151,3 +151,35 @@ test('alla adresser sidan hämtar är rotabsoluta', () => {
   assert.ok(pdfLank, 'PDF-länken saknas');
   assert.ok(pdfLank[1].startsWith('/'), `PDF-länken är relativ: ${pdfLank[1]}`);
 });
+
+/**
+ * KRAV-23: besöksstatistiken får aldrig kunna peka ut en enskild löpare.
+ *
+ * Kvittosidan skriver om adressen till /t/<tävling>?id=<löpar-id> när ett
+ * kvitto visas (history.replaceState), och Umami följer history-API:t. Utan
+ * `data-exclude-search` registreras därför exakt vilken löpare som tittat –
+ * samma personuppgift som lib/statistik.js är byggd för att slippa. Flaggan är
+ * lätt att råka stryka vid en uppdatering av scripttaggen, och felet syns inte
+ * på sidan: det syns bara i Umami, långt senare.
+ */
+test('besöksstatistiken får inte se löpar-id i adressen', () => {
+  const skript = HTML.match(/<script[^>]*umami[^>]*>/i);
+  if (!skript) return; // ingen besöksstatistik konfigurerad – inget att skydda
+  assert.match(
+    skript[0],
+    /data-exclude-search\s*=\s*"true"/,
+    'Umami-taggen saknar data-exclude-search="true" – löpar-id skulle följa med i adressen'
+  );
+});
+
+test('inga andra externa resurser än besöksstatistiken laddas', () => {
+  // Utomstående resurser röjer vilka löpare som öppnar sina kvitton. Enda
+  // undantaget är klubbens egen Umami (KRAV-23); allt annat ska vara lokalt.
+  // Bara det som webbläsaren hämtar av sig själv räknas – en <a href> till
+  // MeOS i sidfoten laddar ingenting förrän någon klickar på den.
+  const externa = [...HTML.matchAll(/<(script|link|img|iframe|source)\b[^>]*>/gi)]
+    .map((m) => m[0].match(/(?:src|href)\s*=\s*"(https?:\/\/[^"]+)"/i)?.[1])
+    .filter(Boolean)
+    .filter((url) => !url.startsWith('https://umami.neomeda.se/'));
+  assert.deepEqual(externa, [], `externa resurser i index.html: ${externa.join(', ')}`);
+});

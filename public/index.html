@@ -6,6 +6,16 @@
 <meta name="theme-color" content="#d93f3f" />
 <title>Digitalt kvitto – MeOS</title>
 <link rel="stylesheet" href="/styles.css" />
+<!-- Besöksstatistik (KRAV-23). Egen Umami-instans, inte en tredjepartstjänst:
+     datan stannar hos klubben. `data-exclude-search` är inte kosmetiskt utan
+     hela förutsättningen – kvittosidan skriver om adressen till
+     /t/<tävling>?id=<löpar-id> när ett kvitto visas, och Umami följer
+     history-API:t. Utan flaggan registreras exakt vilken löpare som tittade,
+     alltså precis den personuppgift tjänsten annars är byggd för att undvika
+     (KRAV-21). Kvar blir sökvägen, som bara bär tävlingens id. -->
+<script defer src="https://umami.neomeda.se/script.js"
+        data-website-id="ecc3a861-ab8c-4883-b2bb-ce6b8d3cb520"
+        data-exclude-search="true"></script>
 </head>
 <body>
 <header>

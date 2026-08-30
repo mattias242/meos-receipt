@@ -186,7 +186,15 @@ MeOS resultatautomat ─IOF XML 3.0──▶ POST /iof ──┘   (minne + JSON
   SEA-exen där `__dirname` blir exens mapp).
 - **Inga externa beroenden i frontend.** Inga CDN:er, inga externa typsnitt –
   utseendet följer klubbsajten via en systemfont-stack. Utomstående resurser
-  skulle läcka vilka löpare som öppnar sina kvitton.
+  skulle läcka vilka löpare som öppnar sina kvitton. **Ett undantag:** klubbens
+  egen Umami (`umami.neomeda.se`, KRAV-23), där datan stannar hos klubben.
+  Det undantaget gäller bara den instansen och står och faller med
+  `data-exclude-search="true"` – kvittosidan skriver om adressen till
+  `/t/<tävling>?id=<löpar-id>`, och Umami följer history-API:t. Utan flaggan
+  registreras exakt vilken löpare som tittade, alltså precis det KRAV-21 är
+  byggt för att undvika. `test/frontend.test.js` bevakar både flaggan och att
+  ingen annan extern resurs smugit sig in; felet syns annars inte på sidan utan
+  först i Umami, långt senare.
 - **Kvittot är alltid vitt papper med svart text i Courier**, oavsett sidans
   övriga färger, så att skärm, utskrift och PDF ser likadana ut. Färgkontraster
   bevakas av `test/tillganglighet.test.js`, som läser värdena ur `styles.css`.
