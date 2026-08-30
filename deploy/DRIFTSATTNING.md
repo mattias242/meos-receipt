@@ -200,35 +200,45 @@ genväg från förstasidan, inte en låsning av tjänsten.
 
 ### Två tävlingar samma helg, samma värdnamn
 
-Lördag och söndag är **två tävlingar med varsitt tävlings-id** i MeOS, men bara
-ett värdnamn och en QR-kod i målfållan. Två saker går fel om de inte görs, och
-båda ser rätt ut ända tills löparen står med telefonen i handen.
+Helgens adress är **`https://kvitto.stenungsundsok.se/`** — roten, utan
+tävlings-id. Lördag och söndag är **två tävlingar med varsitt tävlings-id** i
+MeOS, men bara ett värdnamn och en QR-kod i målfållan. Två saker går fel om de
+inte görs, och båda ser rätt ut ända tills löparen står med telefonen i handen.
 
 **QR-koden ska peka på roten, inte på `/t/<id>`.**
 
 ```
-https://kvitto.klubben.se/          ← rätt: följer bindningen, samma kod båda dagarna
-https://kvitto.klubben.se/t/26090501  ← fel: visar lördagens tävling även på söndagen
+https://kvitto.stenungsundsok.se/            ← rätt: följer bindningen, samma kod båda dagarna
+https://kvitto.stenungsundsok.se/t/26090501  ← fel: visar lördagens tävling även på söndagen
 ```
 
 Koden trycks en gång och sitter kvar på alla tre stationerna i målfållan hela
-helgen. Med tävlings-id:t i koden hade söndagens löpare fått lördagens tävling,
-och den enda rättningen hade varit att trycka om skyltarna mitt under loppet.
-Roten skickas i stället vidare (302, aldrig 301) till den tävling som är bunden
-just nu.
+helgen — även den station som bara har digitalt kvitto. Med tävlings-id:t i
+koden hade söndagens löpare fått lördagens tävling, och den enda rättningen hade
+varit att trycka om skyltarna mitt under loppet. Roten skickas i stället vidare
+(302, aldrig 301) till den tävling som är bunden just nu.
 
 **Bindningen ska pekas om på söndag morgon** — den följer inte med av sig själv.
+I `.env` står den som
 
-Checklista för helgen:
+```
+VARDNAMN_TAVLINGAR=kvitto.stenungsundsok.se=<lördagens tävlings-id>
+```
+
+och pekas om med `tools/byt-tavling.sh`, aldrig genom att redigera `.env` för
+hand (två rader ser riktiga ut men den ena vinner tyst).
+
+Checklista för helgen — id:na nedan är exempel, byt mot MeOS faktiska:
 
 | När | Vad | Kommando |
 | --- | --- | --- |
-| Före lördag | Bind lördagens tävling | `./tools/byt-tavling.sh 26090501` |
-| Före lördag | Kontrollera utifrån | `curl -sI https://kvitto.klubben.se \| head -3` → `302` mot `/t/26090501` |
-| Före lördag | Kontrollera hela kedjan | `tools/verifiera-drift.sh https://kvitto.klubben.se` |
+| Dagen före | Bind lördagens tävling | `./tools/byt-tavling.sh 26090501` |
+| Dagen före | Kontrollera utifrån | `curl -sI https://kvitto.stenungsundsok.se \| head -3` → `302` mot `/t/26090501` |
+| Dagen före | Kontrollera hela kedjan | `tools/verifiera-drift.sh https://kvitto.stenungsundsok.se` |
+| Dagen före | Kontrollera att besöket räknas i Umami | ladda sidan en gång, se nedan |
 | **Söndag morgon** | Peka om bindningen | `./tools/byt-tavling.sh 26090601` |
-| **Söndag morgon** | Kontrollera **innan första löparen går i mål** | `curl -sI https://kvitto.klubben.se \| head -3` → `302` mot `/t/26090601` |
-| Söndag morgon | Kontrollera att söndagens data kommer in | `curl -s https://kvitto.klubben.se/api/health` |
+| **Söndag morgon** | Kontrollera **innan första löparen går i mål** | `curl -sI https://kvitto.stenungsundsok.se \| head -3` → `302` mot `/t/26090601` |
+| Söndag morgon | Kontrollera att söndagens data kommer in | `curl -s https://kvitto.stenungsundsok.se/api/health` |
 
 `byt-tavling.sh` startar om containern och kontrollerar själv mot containern att
 `/` skickas vidare till rätt tävling. Kontrollen utifrån är ändå värd sina tio
@@ -258,6 +268,15 @@ med det gamla taket `READ_LIMIT=1000` fick 802 av 1000 löpare sitt kvitto när 
 sökte på namn, och söndagens tävling gav **0 av 1000** från en klient som redan
 sett lördagens fält. Med `5000` går båda dagarna igenom. Ändra inte värdet inför
 helgen utan att mäta om.
+
+**Besöksstatistiken räknar bara det värdnamn Umami känner igen.** Siten i
+klubbens Umami (KRAV-23, taggen ligger i `public/index.html`) är registrerad för
+`meos-kvitto.neomeda.eu`, men löparna kommer via `kvitto.stenungsundsok.se`.
+Ladda därför sidan en gång dagen före och kontrollera att besöket dyker upp i
+`https://umami.neomeda.se` — gör det inte det ska värdnamnet läggas till på
+siten där. Ren driftskontroll, ingen kodändring, och den ska göras *före* helgen:
+i efterhand går ingen statistik att rekonstruera. Att den saknas märks aldrig på
+sidan, bara på att grafen är tom på måndagen.
 
 **Glöm inte MeOS.** Onlineresultat på tävlingsdatorn ska ha söndagens tävlings-id
 och samma `MEOS_PASSWORD`; uppladdningen av resultatfiler ska peka på söndagens
