@@ -198,6 +198,71 @@ gången hamna på fel tävling utan att kunna göra något åt det.
 `/t/<tävlings-id>` fungerar oförändrat från alla värdnamn — bindningen är en
 genväg från förstasidan, inte en låsning av tjänsten.
 
+### Två tävlingar samma helg, samma värdnamn
+
+Lördag och söndag är **två tävlingar med varsitt tävlings-id** i MeOS, men bara
+ett värdnamn och en QR-kod i målfållan. Två saker går fel om de inte görs, och
+båda ser rätt ut ända tills löparen står med telefonen i handen.
+
+**QR-koden ska peka på roten, inte på `/t/<id>`.**
+
+```
+https://kvitto.klubben.se/          ← rätt: följer bindningen, samma kod båda dagarna
+https://kvitto.klubben.se/t/26090501  ← fel: visar lördagens tävling även på söndagen
+```
+
+Koden trycks en gång och sitter kvar på alla tre stationerna i målfållan hela
+helgen. Med tävlings-id:t i koden hade söndagens löpare fått lördagens tävling,
+och den enda rättningen hade varit att trycka om skyltarna mitt under loppet.
+Roten skickas i stället vidare (302, aldrig 301) till den tävling som är bunden
+just nu.
+
+**Bindningen ska pekas om på söndag morgon** — den följer inte med av sig själv.
+
+Checklista för helgen:
+
+| När | Vad | Kommando |
+| --- | --- | --- |
+| Före lördag | Bind lördagens tävling | `./tools/byt-tavling.sh 26090501` |
+| Före lördag | Kontrollera utifrån | `curl -sI https://kvitto.klubben.se \| head -3` → `302` mot `/t/26090501` |
+| Före lördag | Kontrollera hela kedjan | `tools/verifiera-drift.sh https://kvitto.klubben.se` |
+| **Söndag morgon** | Peka om bindningen | `./tools/byt-tavling.sh 26090601` |
+| **Söndag morgon** | Kontrollera **innan första löparen går i mål** | `curl -sI https://kvitto.klubben.se \| head -3` → `302` mot `/t/26090601` |
+| Söndag morgon | Kontrollera att söndagens data kommer in | `curl -s https://kvitto.klubben.se/api/health` |
+
+`byt-tavling.sh` startar om containern och kontrollerar själv mot containern att
+`/` skickas vidare till rätt tävling. Kontrollen utifrån är ändå värd sina tio
+sekunder: den säger att DNS och Cloudflares cache också hunnit med.
+
+**Räkna inte med att bricksökningen räddar dagen.** KRAV-6 slår upp ett
+bricknummer i den senaste tävling där brickan förekommer — men bara när
+uppslaget görs *utan* tävling. Skannar löparen QR-koden hamnar hon på
+`/t/<bunden tävling>`, och sidan skickar med den tävlingen i varje sökning.
+Uppmätt mot tjänsten med lördagen bunden och en söndagsbricka:
+
+```
+GET /api/receipt?cmp=<lördagen>&card=<söndagsbricka>
+→ 404 {"error":"Ingen löpare med bricka 8002 hittades."}
+GET /api/search?q=<söndagsbricka>&cmp=<lördagen>
+→ 200 []
+```
+
+Söndagens löpare får alltså **inget kvitto alls**, inte bara fel rubrik. Den som
+sprang båda dagarna får i stället lördagens kvitto, med lördagens tävlingsnamn i
+rubriken — rätt person, fel dag. Fri sökning i senaste tävlingen fungerar bara
+från tjänstens egen förstasida, där ingen tävling är bunden. Kontrollen i
+tabellen ovan är därför inte valfri.
+
+**Läsgränsen räcker för båda dagarna.** Uppmätt med `tools/lasttest.mjs 1000 20`:
+med det gamla taket `READ_LIMIT=1000` fick 802 av 1000 löpare sitt kvitto när de
+sökte på namn, och söndagens tävling gav **0 av 1000** från en klient som redan
+sett lördagens fält. Med `5000` går båda dagarna igenom. Ändra inte värdet inför
+helgen utan att mäta om.
+
+**Glöm inte MeOS.** Onlineresultat på tävlingsdatorn ska ha söndagens tävlings-id
+och samma `MEOS_PASSWORD`; uppladdningen av resultatfiler ska peka på söndagens
+fil. Ett kvarglömt lördags-id syns som att söndagens löpare aldrig dyker upp.
+
 ## 8. Uppdatera en driftsatt tjänst
 
 Samma kedja som steg 2, följt av en ombyggnad:
@@ -236,5 +301,11 @@ uppdatering. Kontrollera efteråt med `tools/verifiera-drift.sh`.
 - **Containern kör som `root`.** Rättningen kräver att datakatalogen ägs av
   rätt uid; en volym som slutar gå att skriva till på en tävlingsdag är värre
   än problemet. Se `docs/systemritning.md`.
-- **Läsgränsen är en bromskloss, inte en mur.** `READ_LIMIT=1000` olika löpare
-  per klient och kvart.
+- **Läsgränsen är en bromskloss, inte en mur.** `READ_LIMIT=5000` olika löpare
+  per klient och kvart. Höjt från 1000 efter mätning: en tävling med 1000
+  deltagare bakom samma operatörsadress kostar ~1250 identiteter när löparna
+  söker på namn, och en helg med tävling båda dagarna kostar det dubbla. Ett för
+  lågt tak ger 429 åt en löpare som just gått i mål; ett för högt ger den som
+  ändå skrapar några timmar i stället för en. Mät med `tools/lasttest.mjs` innan
+  du ändrar. Taket är också ett minnestak: en klient som når det håller ~170 kB
+  i en kvart.

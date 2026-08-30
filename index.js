@@ -16,7 +16,22 @@ const trustProxy = parseInt(process.env.TRUST_PROXY || '0', 10) || false;
 // personer och inte anrop, så en kvittosida som pollar kostar 1. Högt satt med
 // mobilnätet i åtanke – operatörer lägger många abonnenter bakom samma adress,
 // så på en arena kan hundratals löpare dela IP. 0 stänger av det.
-const readLimit = parseInt(process.env.READ_LIMIT ?? '1000', 10);
+//
+// Värdet är mätt, inte gissat. `node tools/lasttest.mjs 1000 20` med en tävling
+// i skarp storlek: 1000 löpare som hämtar sitt eget kvitto tog exakt 1000 av
+// 1000 identiteter – marginal noll – och söker de på namn i stället för att
+// skanna QR-koden kostar varje träff en identitet, så bara 802 av 1000 hann se
+// sitt kvitto innan taket slog till. Tusen löpare bakom en operatörsadress
+// kostar alltså ~1250 identiteter. 5000 ger fyra gånger det uppmätta behovet,
+// och rymmer både ett större deltagarfält och en helg med tävling båda dagarna
+// på samma värdnamn.
+//
+// Konsekvenserna är asymmetriska: ett för lågt tak ger 429 och inget kvitto åt
+// en löpare som just gått i mål utan papperskvitto, medan ett för högt tak bara
+// betyder att den som ändå skrapar behöver några timmar i stället för en. Taket
+// är en bromskloss mot massinsamling, inte en mur – något bulkuttag finns inte,
+// och sökningen vägrar redan svara på fler än 100 träffar.
+const readLimit = parseInt(process.env.READ_LIMIT ?? '5000', 10);
 
 // KRAV-20: värdnamn bundna till en bestämd tävling, så att arrangören kan trycka
 // klubbens egen adress i PM. Formatet är kvitto.klubben.se=26082002, flera

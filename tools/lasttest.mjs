@@ -27,6 +27,9 @@ import { createApp } from '../server.js';
 
 const antalLöpare = parseInt(process.argv[2] || '1000', 10);
 const antalKlasser = parseInt(process.argv[3] || '20', 10);
+// Samma tak som index.js levererar. Mäter verktyget mot ett annat värde än
+// driften kör med säger mätningen ingenting om helgen som kommer.
+const läsgräns = parseInt(process.env.READ_LIMIT || '5000', 10);
 
 const ms = (n) => `${n.toFixed(1)} ms`;
 const mb = (n) => `${(n / 1024 / 1024).toFixed(2)} MB`;
@@ -112,7 +115,7 @@ async function mät(fn, gånger = 20) {
 }
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'meos-lasttest-'));
-const app = createApp({ dataDir, password: 'lasttest', saveDelayMs: 100, readLimit: 1000 });
+const app = createApp({ dataDir, password: 'lasttest', saveDelayMs: 100, readLimit: läsgräns });
 const server = await new Promise((r) => {
   const s = app.listen(0, () => r(s));
 });
@@ -191,7 +194,7 @@ console.log(`  Sökning     ${ms(sök.median)} / ${ms(sök.p95)} / ${ms(sök.vä
 // Alla anrop här kommer från samma adress, precis som när hundratals löpare
 // ligger bakom en operatörs CGNAT. Frågan är hur många som hinner få sitt
 // kvitto innan taket slår till.
-const grans = createApp({ dataDir: null, password: 'x', readLimit: 1000 });
+const grans = createApp({ dataDir: null, password: 'x', readLimit: läsgräns });
 const gservern = await new Promise((r) => {
   const s = grans.listen(0, () => r(s));
 });
@@ -208,21 +211,34 @@ for (let i = 0; i < antalLöpare; i++) {
   if (r.status === 429) break;
   egnaKvitton++;
 }
-// Marginalen är det som betyder något: hur många fler som ryms innan taket.
-let överskott = 0;
-while (överskott < antalLöpare) {
-  const r = await fetch(`${gbas}/api/receipt?cmp=${cid}&id=${overskottsId(överskott)}`);
+// Marginalen mätt som en helg med tävling båda dagarna ser ut: dag två är en
+// egen tävling med egna identiteter, men samma löpare, samma mobil och samma
+// operatörsadress. Ryms båda dagarna i samma kvart är taket rätt satt.
+const cid2 = '26090601';
+// Eget namn och datum, annars varnar tjänsten helt riktigt för att två
+// tävlings-id ser ut att vara samma tävling (KRAV-15).
+const dagTvåSändning = helSändning
+  .replace('date="2026-09-05"', 'date="2026-09-06"')
+  .replace('>Lasttestet<', '>Lasttestet dag 2<');
+await fetch(`${gbas}/meos`, {
+  method: 'POST',
+  headers: { competition: cid2, pwd: 'x', 'content-type': 'application/xml' },
+  body: dagTvåSändning,
+});
+let dagTvå = 0;
+for (let i = 0; i < antalLöpare; i++) {
+  const r = await fetch(`${gbas}/api/receipt?cmp=${cid2}&card=${500000 + i}`);
   if (r.status === 429) break;
-  överskott++;
+  dagTvå++;
 }
 
-console.log('\nLÄSGRÄNSEN (READ_LIMIT=1000, allt från samma IP)');
+console.log(`\nLÄSGRÄNSEN (READ_LIMIT=${läsgräns}, allt från samma IP)`);
 console.log(`  Egna kvitton innan taket     ${egnaKvitton} av ${antalLöpare}`);
-console.log(`  Marginal därefter            ${överskott} kvitton kvar till taket`);
+console.log(`  Dag två från samma klient    ${dagTvå} av ${antalLöpare}`);
 
 // Det realistiska fallet: löparen söker på sitt namn först. En sökning kostar
 // en identitet per träff, så den som inte skannar QR-koden kostar mer än en.
-const grans2 = createApp({ dataDir: null, password: 'x', readLimit: 1000 });
+const grans2 = createApp({ dataDir: null, password: 'x', readLimit: läsgräns });
 const g2 = await new Promise((r) => {
   const s = grans2.listen(0, () => r(s));
 });
@@ -245,15 +261,10 @@ for (let i = 0; i < antalLöpare; i++) {
 }
 console.log(`  Om löparna söker på namn     ${löpareMedSökning} av ${antalLöpare} hinner se sitt kvitto`);
 if (löpareMedSökning < antalLöpare) {
-  const rek = Math.ceil((antalLöpare / löpareMedSökning) * 1000 * 1.5);
+  const rek = Math.ceil((antalLöpare / löpareMedSökning) * läsgräns * 1.5);
   console.log(
     `  ⚠ Taket nås efter ${löpareMedSökning} löpare. Höj READ_LIMIT till minst ${rek} inför helgen.`
   );
-}
-
-/** Ett löpar-id som inte redan räknats, för att mäta marginalen. */
-function overskottsId(n) {
-  return antalLöpare + n + 1;
 }
 
 server.close();

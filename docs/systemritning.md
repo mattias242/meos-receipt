@@ -37,7 +37,7 @@ flowchart TB
   STORE --> G2
 
   subgraph LAS["Läsning"]
-    G2["no-store · READ_LIMIT 1000/kvart<br/>fler än 100 träffar → 400<br/>okänd tävling → 404<br/>delad bricka → 300"]
+    G2["no-store · READ_LIMIT 5000/kvart<br/>fler än 100 träffar → 400<br/>okänd tävling → 404<br/>delad bricka → 300"]
   end
 
   G2 --> SIDA["Kvittosidan"]
@@ -92,7 +92,7 @@ Bricknumret används för uppslag men lämnar aldrig tjänsten (KRAV-5).
 | # | Skydd | Utan det |
 | --- | --- | --- |
 | 15 | `Cache-Control: no-store` | Kvitton är personuppgifter, och ett cachat svar visar gammal status med en ålder som ser färsk ut — varningen som skulle fånga det är det första som slutar fungera. |
-| 16 | Tak för antal **olika** löpare per klient | `READ_LIMIT`, standard 1000 per kvart. Räknar personer och inte anrop, så en kvittosida som uppdaterar sig kostar 1 hur länge den än står öppen. |
+| 16 | Tak för antal **olika** löpare per klient | `READ_LIMIT`, standard 5000 per kvart – uppmätt kostar en tävling med 1000 deltagare bakom samma operatörsadress ~1250 identiteter. Räknar personer och inte anrop, så en kvittosida som uppdaterar sig kostar 1 hur länge den än står öppen. |
 | 17 | Bricknumret lämnar aldrig tjänsten | Det ingår inte i en vanlig resultatlista, följer samma person år efter år och är den nyckel som annars knyter ihop en löpare mellan tävlingar. Sökning på numret fungerar ändå. |
 | 18 | Okänd tävling faller inte tillbaka | Löpar-id är MeOS interna och återanvänds. En sparad länk till en gallrad tävling visade annars en främmande människas kvitto. |
 | 19 | Delad bricka gissar inte | Svar 300 med en valbar lista. |

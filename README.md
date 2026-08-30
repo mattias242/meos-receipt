@@ -226,10 +226,16 @@ kvitto, PDF och sökning medan MeOS sänder, samt **var läsgränsen tar**.
 
 Det sista är det som brukar överraska. `READ_LIMIT` räknar olika löpare per
 klient-IP, och mobiloperatörer lägger många abonnenter bakom samma adress. Med
-standardvärdet `1000` och tusen deltagare är marginalen noll, och söker
-löparna på namn i stället för att skanna QR-koden – varje träff kostar en
-identitet – tar taket redan vid drygt 800. Verktyget säger vilket värde som
-behövs.
+det gamla standardvärdet `1000` och tusen deltagare var marginalen exakt noll,
+och sökte löparna på namn i stället för att skanna QR-koden – varje träff
+kostar en identitet – tog taket redan vid 802 av 1000. Det är därför
+standardvärdet numera är `5000`: tusen löpare bakom en operatörsadress kostar
+uppmätt ~1250 identiteter, och taket ska ha marginal för ett större fält och
+för en helg med tävling båda dagarna – med det gamla taket fick söndagens
+tävling **0 av 1000** kvitton från en klient som redan sett lördagens fält.
+Verktyget säger vilket värde som behövs för just din storlek, och mäter mot det
+tak driften faktiskt kör med (`READ_LIMIT=... node tools/lasttest.mjs` för att
+prova ett annat).
 
 ### Om något krånglar under tävlingen
 
@@ -284,7 +290,7 @@ Se KRAV-12 (utgått) i `docs/KRAV.md`.
 | --- | --- | --- |
 | `MEOS_PASSWORD` | — | Lösenord som MeOS måste skicka i `pwd`-headern. **Krävs** – tjänsten vägrar starta utan. |
 | `ALLOW_NO_PASSWORD` | — | `1` startar tjänsten utan lösenord, med öppna skrivändpunkter. Bara för ett eget nätverk utan internet (KRAV-12). |
-| `READ_LIMIT` | `1000` | Hur många **olika** löpare en klient får se per kvart (KRAV-5). Räknar personer, inte anrop, så en kvittosida som uppdaterar sig kostar 1. Sänk om du vill bromsa massinsamling hårdare; `0` stänger av. Tänk på att mobiloperatörer lägger många abonnenter bakom samma adress. |
+| `READ_LIMIT` | `5000` | Hur många **olika** löpare en klient får se per kvart (KRAV-5). Räknar personer, inte anrop, så en kvittosida som uppdaterar sig kostar 1. Uppmätt med `tools/lasttest.mjs 1000 20`: en tävling med 1000 deltagare bakom **samma** operatörsadress kostar ~1250 identiteter när löparna söker på namn – med det gamla taket `1000` fick 802 av 1000 sitt kvitto och resten `429`. `5000` är fyra gånger det uppmätta behovet. Sänk bara om du mätt att fältet är litet: konsekvenserna är asymmetriska, ett för lågt tak stänger ute löpare som just gått i mål medan ett för högt bara ger den som skrapar några timmar i stället för en. `0` stänger av. Taket är också ett minnestak – en klient som når det håller ~170 kB i en kvart. |
 | `DATA_DIR` | `./data` | Katalog för persisterad tävlingsdata (JSON). |
 | `PORT` | `3000` | Port för webbservern. |
 | `PUBLIC_DIR` | `public/` bredvid koden/exen | Katalog med kvittosidans statiska filer. |

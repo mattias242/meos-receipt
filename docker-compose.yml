@@ -30,7 +30,9 @@ services:
       # Antal proxyhopp framför tjänsten. Ligger nginx framför: 1. Utan proxy: 0.
       TRUST_PROXY: ${TRUST_PROXY:-0}
       # Antal olika löpare en klient får se per kvart (KRAV-5). 0 = av.
-      READ_LIMIT: ${READ_LIMIT:-1000}
+      # 5000: uppmätt kostar 1000 löpare bakom samma operatörsadress ~1250
+      # identiteter när de söker på namn (tools/lasttest.mjs 1000 20).
+      READ_LIMIT: ${READ_LIMIT:-5000}
       # Värdnamn bundna till en tävling (KRAV-20), t.ex.
       # kvitto.klubben.se=26082002. Pekas om inför varje arrangemang.
       VARDNAMN_TAVLINGAR: ${VARDNAMN_TAVLINGAR:-}
