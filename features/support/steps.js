@@ -766,3 +766,63 @@ Then('visar kvittot för bricka {int} löparen {string}', async function (card, 
   assert.equal(status, 200, JSON.stringify(body));
   assert.equal(body.runner.name, name);
 });
+
+// --- Statistik och löparens omdöme (KRAV-21, KRAV-22) ---------------------
+
+/** Mätvärdena för en tävling ur /api/statistik. */
+async function statistikFor(world, cid) {
+  const res = await fetch(`${world.base}/api/statistik`);
+  assert.equal(res.status, 200, `statistiken svarade ${res.status}`);
+  const rader = await res.json();
+  const rad = rader.find((r) => r.id === cid);
+  assert.ok(rad, `tävling ${cid} saknas i statistiken: ${JSON.stringify(rader)}`);
+  return rad;
+}
+
+When('jag röstar {string} för tävling {int}', async function (svar, cid) {
+  const res = await fetch(`${this.base}/api/feedback`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ cmp: cid, svar }),
+  });
+  this.röst = { status: res.status, body: await res.json() };
+});
+
+Then('visar statistiken {int} visade kvitton för tävling {int}', async function (antal, cid) {
+  const rad = await statistikFor(this, cid);
+  assert.equal(rad.kvittonVisade, antal);
+});
+
+Then('visar statistiken {int} startande för tävling {int}', async function (antal, cid) {
+  const rad = await statistikFor(this, cid);
+  assert.equal(rad.startande, antal);
+});
+
+Then('visar statistiken {int} hämtade PDF:er för tävling {int}', async function (antal, cid) {
+  const rad = await statistikFor(this, cid);
+  assert.equal(rad.pdf, antal);
+});
+
+Then(
+  'visar statistiken {int} tummar upp och {int} tummar ner för tävling {int}',
+  async function (upp, ner, cid) {
+    const rad = await statistikFor(this, cid);
+    assert.equal(rad.upp, upp, 'tummar upp');
+    assert.equal(rad.ner, ner, 'tummar ner');
+  }
+);
+
+// Rösten får inte gå att spåra till en löpare. Fixturens id:n är 31–35.
+Then('innehåller statistiken inga löpar-id', async function () {
+  const rå = await (await fetch(`${this.base}/api/statistik`)).text();
+  for (const id of [31, 32, 33, 34, 35]) {
+    assert.doesNotMatch(rå, new RegExp(`\\b${id}\\b`), `löpar-id ${id} röjdes: ${rå}`);
+  }
+});
+
+Then('avvisas rösten', function () {
+  assert.ok(
+    this.röst.status >= 400,
+    `rösten togs emot med ${this.röst.status}: ${JSON.stringify(this.röst.body)}`
+  );
+});

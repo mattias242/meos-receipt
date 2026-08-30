@@ -323,6 +323,7 @@ test('API-svar får inte cachas av mellanled', { concurrency: true }, withServer
   for (const väg of [
     '/api/health',
     '/api/competitions',
+    '/api/statistik',
     '/api/search?q=anna',
     '/api/receipt?card=123456',
     '/api/receipt.pdf?card=123456',

@@ -53,6 +53,29 @@
   <ul id="hits" class="hits" hidden></ul>
 
   <article id="receipt" class="receipt" aria-live="polite" hidden></article>
+
+  <!-- KRAV-22: löparens omdöme. Ligger utanför #receipt av två skäl: kvittot
+       ritas om var 15:e sekund och rutan skulle nollställas vid varje
+       uppdatering, och kvittot ska se likadant ut på skärm, i utskrift och i
+       PDF – en fråga mitt i remsan hör inte hemma där. -->
+  <section id="feedback" class="feedback" hidden>
+    <h2 id="feedbackFraga" class="feedbackFraga">Var detta värdefullt för dig?</h2>
+    <div class="feedbackKnappar" role="group" aria-labelledby="feedbackFraga">
+      <button type="button" class="feedbackBtn" data-svar="upp" aria-label="Ja, det var värdefullt">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M2 20h3V9H2v11zm19.8-9.3c0-.9-.8-1.7-1.7-1.7h-5.4l.8-3.9v-.3c0-.4-.1-.7-.4-.9L14.2 3 8.6 8.6c-.3.3-.5.7-.5 1.2v8.5c0 .9.8 1.7 1.7 1.7h7.6c.7 0 1.3-.4 1.5-1l2.6-6c.1-.2.1-.4.1-.6v-1.7z" />
+        </svg>
+        <span>Ja</span>
+      </button>
+      <button type="button" class="feedbackBtn" data-svar="ner" aria-label="Nej, det var inte värdefullt">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M22 4h-3v11h3V4zM2.2 13.3c0 .9.8 1.7 1.7 1.7h5.4l-.8 3.9v.3c0 .4.1.7.4.9l.9.9 5.6-5.6c.3-.3.5-.7.5-1.2V5.7c0-.9-.8-1.7-1.7-1.7H6.6c-.7 0-1.3.4-1.5 1l-2.6 6c-.1.2-.1.4-.1.6v1.7z" />
+        </svg>
+        <span>Nej</span>
+      </button>
+    </div>
+    <p id="feedbackTack" class="feedbackTack" role="status" aria-live="polite" hidden></p>
+  </section>
 </main>
 
 <footer>

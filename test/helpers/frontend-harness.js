@@ -67,6 +67,15 @@ function element(id, onNyHtml) {
       this.barn ||= {};
       return (this.barn[väljare] ||= element(`${id}>${väljare}`));
     },
+    /**
+     * Listan av barn för en väljare. Tom om testet inte lagt dit några –
+     * harnessen speglar index.html för hand, så det som ska hittas måste
+     * fyllas i där (se feedbackknapparna nedan).
+     */
+    querySelectorAll(väljare) {
+      this.barnlistor ||= {};
+      return this.barnlistor[väljare] || [];
+    },
     closest() {
       return null;
     },
@@ -150,7 +159,28 @@ export function laddaSidan({ svar = () => ({ status: 200, body: {} }), search = 
     return el.get(id);
   };
   // Sidan läser dessa vid start; de måste finnas innan koden körs.
-  for (const id of ['searchForm', 'query', 'cmpSelect', 'message', 'hits', 'receipt']) hämta(id);
+  for (const id of [
+    'searchForm',
+    'query',
+    'cmpSelect',
+    'message',
+    'hits',
+    'receipt',
+    // KRAV-22: omdömesrutan ligger utanför #receipt och ritas därför aldrig om.
+    'feedback',
+    'feedbackTack',
+  ]) {
+    hämta(id);
+  }
+  // De två tummarna, som de står i index.html. app.js skiljer dem på
+  // data-svar, så attrappen måste bära det.
+  const tummar = ['upp', 'ner'].map((svar) => {
+    const knapp = element(`feedbackBtn:${svar}`);
+    knapp.dataset.svar = svar;
+    return knapp;
+  });
+  hämta('feedback').barnlistor = { '.feedbackBtn': tummar };
+  el.set('feedbackKnappar', tummar);
 
   const tid = klocka();
   const anrop = []; // varje fetch: { url, opts, klar }

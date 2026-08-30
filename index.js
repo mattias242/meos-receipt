@@ -84,6 +84,7 @@ function avsluta(signal) {
   console.log(`${signal} mottaget – skriver kvar data och avslutar.`);
   // Skriv först: en anslutning som inte vill stänga får inte kosta tävlingsdata.
   app.locals.store.close();
+  app.locals.statistik.close();
   server.close(() => process.exit(0));
   // Kvittosidan pollar var 15:e sekund, så det finns nästan alltid en öppen
   // anslutning. Vänta inte ut den – datan är redan skriven.

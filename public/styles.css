@@ -373,3 +373,54 @@ footer a { color: #fff; }
 
 /* Ingen mörk variant: sidan följer klubbsajtens ljusa utseende, och kvittot
    ska vara vitt papper med svart text oavsett systeminställning. */
+
+/* Löparens omdöme (KRAV-22). Ligger på sidans egen bakgrund och inte på
+   kvittots vita papper – frågan är tjänstens, inte en del av resultatet, och
+   kvittot ska se likadant ut på skärm, i utskrift och i PDF. */
+.feedback {
+  margin: 1.5rem auto 0;
+  max-width: 380px;
+  text-align: center;
+  color: #e9ecef;
+}
+.feedbackFraga {
+  font-size: 1rem;
+  font-weight: 500;
+  margin: 0 0 0.9rem;
+  color: #e9ecef;
+}
+.feedbackKnappar {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+.feedbackBtn {
+  /* 44 px är minsta träffyta som går att träffa säkert med en tumme i
+     målfållan, ofta med handskar på (KRAV-17). */
+  min-height: 44px;
+  min-width: 104px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  background: none;
+  border: 1px solid #e9ecef;
+  color: #e9ecef;
+  border-radius: 2rem;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.feedbackBtn svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+.feedbackBtn:hover { background: rgba(255, 255, 255, 0.12); }
+.feedbackBtn[disabled] { opacity: 0.55; cursor: default; }
+.feedbackTack {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #e9ecef;
+}

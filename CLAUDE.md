@@ -78,6 +78,9 @@ MeOS resultatautomat ─IOF XML 3.0──▶ POST /iof ──┘   (minne + JSON
 - `lib/mailer.js` — utskick via Mailgun EU SMTP. Transporten injiceras, så
   tester kör mot en fejk och inget mejl lämnar maskinen. Innehåller även
   adressvalidering och takt-begränsaren som `server.js` använder.
+- `lib/statistik.js` — hur tjänsten används, aggregerat per tävling (KRAV-21)
+  och löparens tumme upp/ner (KRAV-22). Egen fil, `DATA_DIR/statistik.json`,
+  läses med `GET /api/statistik`.
 
 ### Regler som är lätta att bryta
 
@@ -151,6 +154,21 @@ MeOS resultatautomat ─IOF XML 3.0──▶ POST /iof ──┘   (minne + JSON
   `lib/mop.js` får inte återinföra den. I PDF:en är kontrollkolumnen 14
   tecken: ryms inte allt faller namnet bort i sin helhet, aldrig koden eller
   `SAKNAS`/`EXTRA` (`fitControl` i `lib/pdf.js`).
+- **Statistiken får aldrig registrera vem som tittat.** `lib/statistik.js`
+  håller de unika löpar-id:na i en mängd i minnet och sparar bara antalet. En
+  omstart nollställer mängden, så en återvändande löpare räknas två gånger –
+  det ser ut som en bugg men är priset för att slippa ett register över vem som
+  öppnat sitt kvitto, samma skäl som håller frontend fri från CDN:er. Sparar
+  man mängden till disk är felet borta och personuppgiften där i stället.
+- **Statistiken ligger inte i tävlingens fil.** `MOPComplete` nollställer
+  tävlingen varje gång Onlineresultat startas om; mätningen skulle då försvinna
+  mitt under tävlingsdagen. Den har därför en egen fil och följer i stället med
+  i gallringen via `onGallrad` i `lib/store.js`.
+- **Omdömesrutan ligger utanför `#receipt`.** Kvittot ritas om var 15:e sekund
+  (`renderReceipt` skriver hela `innerHTML`), så en ruta inuti det skulle
+  nollställas vid varje uppdatering – samma fälla som mejlformuläret redan
+  måste rädda undan påbörjad text ur. Den hör dessutom inte hemma i remsan:
+  kvittot ska se likadant ut på skärm, i utskrift och i PDF.
 - **Statuskoder** är MeOS numeriska koder (`STATUS_TEXT` i `lib/receipt.js`);
   IOF-status mappas mot dem via `IOF_STATUS_TO_STAT` i `lib/iof.js`.
 - **Sparningen blockerar eventloopen** och gör det med hela databasen, inte

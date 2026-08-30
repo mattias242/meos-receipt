@@ -8,6 +8,7 @@ import { buildReceipt, searchCompetitors } from './lib/receipt.js';
 import { renderReceiptPdf, receiptFilename } from './lib/pdf.js';
 import { isValidEmail, createRateLimiter, maskeraAdresser } from './lib/mailer.js';
 import { createReadLimiter } from './lib/lasgrans.js';
+import { createStatistik } from './lib/statistik.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -28,6 +29,8 @@ export function createApp({
   now = undefined,
   mailer = null,
   emailRateLimit = {},
+  // KRAV-22: tak per avsändar-IP på tummen. Se röstLimiter nedan.
+  feedbackRateLimit = {},
   trustProxy = false,
   // KRAV-20: värdnamn → tävlings-id. Tom = ingen bindning, förstasidan som vanligt.
   vardnamnTavlingar = new Map(),
@@ -36,13 +39,27 @@ export function createApp({
   // hämtar många kvitton bli beroende av taket.
   readLimit = 0,
 } = {}) {
-  const store = createStore({ dataDir, saveDelayMs, retentionDays, now });
+  // KRAV-21: hur tjänsten används, aggregerat per tävling. Skapas före store,
+  // eftersom gallringen ska ta statistiken med sig.
+  const statistik = createStatistik({ dataDir, saveDelayMs, now });
+  const store = createStore({
+    dataDir,
+    saveDelayMs,
+    retentionDays,
+    now,
+    onGallrad: (ids) => ids.forEach((id) => statistik.glom(id)),
+  });
   const emailLimiter = createRateLimiter(emailRateLimit);
   const läsgräns = createReadLimiter({ max: readLimit });
+  // Rösten är ett klick, inte ett mejl – taket sitter bara för att en enskild
+  // klient inte ska kunna fylla mätningen. Det måste vara generöst: på arenan
+  // ligger hundratals löpare bakom samma operatörsadress (KRAV-22).
+  const röstLimiter = createRateLimiter({ max: 50, windowMs: 10 * 60 * 1000, ...feedbackRateLimit });
   const app = express();
   app.disable('x-powered-by');
   // Den som binder porten behöver kunna tömma sparkön vid avslut (KRAV-8).
   app.locals.store = store;
+  app.locals.statistik = statistik;
   // Taket på mejlutskick gäller per avsändar-IP (KRAV-16). Bakom Fly.io:s
   // proxy eller nginx är socketens adress proxyns – alltså samma för alla, så
   // fem utskick låser hela tävlingen ute. Antalet hopp anges uttryckligen:
@@ -235,6 +252,9 @@ export function createApp({
       });
     }
     räknaSedda(req, hits.map((h) => `${h.cmp}:${h.id}`));
+    // Sökningen räknas på den tävling träffarna kom ur; en sökning utan träff
+    // hör inte till någon tävling och räknas därför inte.
+    if (hits.length) statistik.sokning(hits[0].cmp);
     res.json(hits);
   });
 
@@ -330,6 +350,8 @@ export function createApp({
     const { receipt, status, body } = resolveReceipt(req.query);
     räknaSedda(req, identiteterI(receipt, body));
     if (!receipt) return res.status(status).json(body);
+    // KRAV-21: samma löpare räknas en gång, hur ofta sidan än pollar.
+    statistik.kvitto(receipt.competition.id, receipt.runner.id);
     res.json(receipt);
   });
 
@@ -340,6 +362,7 @@ export function createApp({
     räknaSedda(req, identiteterI(receipt, body));
     if (!receipt) return res.status(status).json(body);
 
+    statistik.pdf(receipt.competition.id);
     const pdf = renderReceiptPdf(receipt);
     res.type('application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${receiptFilename(receipt)}"`);
@@ -370,6 +393,7 @@ export function createApp({
 
     try {
       await mailer.sendReceipt({ to, receipt });
+      statistik.mejl(receipt.competition.id);
       res.json({ ok: true, sent: to });
     } catch (err) {
       // Leverantörens felmeddelanden kan innehålla konto- och serverdetaljer –
@@ -378,6 +402,64 @@ export function createApp({
       console.error('Kunde inte skicka kvitto per e-post:', maskeraAdresser(err.message));
       res.status(502).json({ error: 'Kvittot kunde inte mejlas just nu. Försök igen senare.' });
     }
+  });
+
+  /**
+   * Hur många i tävlingen som faktiskt kom till start – nämnaren i andelen som
+   * öppnat sitt kvitto (KRAV-21). Räknas som placeringen gör (KRAV-4), så att
+   * siffran betyder samma sak som kvittot visar: ej start, återbud och deltar
+   * ej var aldrig ute på banan.
+   */
+  function antalStartande(cid) {
+    const cmp = store.hamta(cid);
+    if (!cmp) return 0;
+    return Object.values(cmp.competitors || {}).filter(
+      (c) => c.stat !== 20 && c.stat !== 21 && c.stat !== 99
+    ).length;
+  }
+
+  /**
+   * Mätningen, aggregerad per tävling (KRAV-21, KRAV-22). Innehåller inga
+   * personuppgifter – varken vem som tittat eller vem som röstat – och röjer
+   * därför inte mer än tävlingslistan redan gör.
+   */
+  app.get('/api/statistik', (req, res) => {
+    const rader = store.listCompetitions().map((c) => {
+      const u = statistik.for(c.id);
+      const startande = antalStartande(c.id);
+      return {
+        id: c.id,
+        name: c.name,
+        date: c.date,
+        startande,
+        ...u,
+        // Andelen av de startande som öppnat sitt kvitto – det mått beslutet
+        // vilar på. null när ingen startat: 0/0 är inte noll procent.
+        andelOppnat: startande > 0 ? Math.round((u.kvittonVisade / startande) * 1000) / 1000 : null,
+      };
+    });
+    res.json(rader);
+  });
+
+  /**
+   * Löparens omdöme: "Var detta värdefullt för dig?" (KRAV-22).
+   *
+   * Bär medvetet varken löpar-id eller bricka. Följde de med vore det lagrade
+   * svaret "löpare 42 tyckte det var dåligt" – en uppgift om en identifierbar
+   * person, och precis den registrering tjänsten undviker på annat håll.
+   */
+  app.post('/api/feedback', express.json({ limit: '1kb' }), (req, res) => {
+    const cid = parseInt(req.body?.cmp ?? '', 10);
+    if (!(cid > 0) || !store.finns(cid)) {
+      return res.status(404).json({ error: 'Okänd tävling.' });
+    }
+    if (!röstLimiter.allow(req.ip || 'okänd')) {
+      return res.status(429).json({ error: 'För många svar från den här enheten.' });
+    }
+    if (!statistik.rosta(cid, String(req.body?.svar ?? ''))) {
+      return res.status(400).json({ error: 'Svaret måste vara "upp" eller "ner".' });
+    }
+    res.json({ ok: true });
   });
 
   app.get('/api/health', (req, res) => {

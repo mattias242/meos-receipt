@@ -283,3 +283,28 @@ test('varje färg på kvittot är läsbar mot sin egen bakgrund', () => {
     );
   }
 });
+
+/**
+ * KRAV-22: tummen ställs i målfållan, ofta i solsken och med handskar på.
+ * Frågan och knapparna ligger på sidans mörka bakgrund, inte på kvittots
+ * vita papper, så kontrasten måste räknas mot den.
+ */
+test('omdömesrutan är läsbar mot sidans bakgrund', () => {
+  const bg = variabel('--bg');
+  const par = [
+    ['frågan', deklaration('.feedbackFraga', 'color'), LITEN],
+    ['knappens text', deklaration('.feedbackBtn', 'color'), LITEN],
+    ['knappens kant', deklaration('.feedbackBtn', 'border').split(/\s+/).pop(), STOR],
+    ['tacket', deklaration('.feedbackTack', 'color'), LITEN],
+  ];
+  for (const [namn, fg, krav] of par) {
+    const k = kontrast(fg, bg);
+    assert.ok(k >= krav, `${namn}: ${k.toFixed(2)}:1 mot ${bg}, kräver ${krav}:1`);
+  }
+});
+
+test('omdömesknapparna går att träffa med tummen', () => {
+  // 44 px är WCAG:s riktmärke för träffytor och det som gäller övriga knappar.
+  assert.ok(parseInt(deklaration('.feedbackBtn', 'min-height'), 10) >= 44);
+  assert.ok(parseInt(deklaration('.feedbackBtn', 'min-width'), 10) >= 44);
+});

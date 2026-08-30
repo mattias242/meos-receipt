@@ -5,6 +5,9 @@ const messageEl = document.getElementById('message');
 const hitsEl = document.getElementById('hits');
 const receiptEl = document.getElementById('receipt');
 const cmpNamn = document.getElementById('cmpNamn');
+const feedbackEl = document.getElementById('feedback');
+const feedbackKnappar = feedbackEl?.querySelectorAll('.feedbackBtn') || [];
+const feedbackTack = document.getElementById('feedbackTack');
 
 /**
  * Tävlingen ur adressen /t/<id> (KRAV-18), när sidan öppnats via den adress
@@ -37,6 +40,7 @@ function clearResults() {
   hitsEl.innerHTML = '';
   receiptEl.hidden = true;
   receiptEl.innerHTML = '';
+  if (feedbackEl) feedbackEl.hidden = true;
   showMessage('');
   if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null; }
   current = null;
@@ -98,6 +102,83 @@ function inaktuellNotis(r) {
   return `<div class="stale">Tjänsten har inte fått ny data från tävlingen på ${minuter} minuter.
     Ditt resultat kan redan vara registrerat – fråga tävlingsledningen om det dröjer.</div>`;
 }
+
+/**
+ * Löparens omdöme (KRAV-22).
+ *
+ * Rutan sitter utanför kvittot och rörs därför inte av att kvittot ritas om
+ * var 15:e sekund – lyssnarna kopplas en gång, inte per uppdatering.
+ *
+ * Att man svarat sparas i webbläsaren och lämnar aldrig telefonen. Det hindrar
+ * inte den som verkligen vill rösta igen, men det behöver det inte: mätningen
+ * ska visa hur många som tyckte något, inte stoppa någon.
+ */
+const RÖSTNYCKEL = 'meos-kvitto-rost';
+
+function harRöstat(cid) {
+  try {
+    return localStorage.getItem(`${RÖSTNYCKEL}:${cid}`) !== null;
+  } catch {
+    // Privat läge och blockerade kakor kastar. Då frågar vi igen – det är
+    // bättre än att rutan försvinner för den som aldrig svarat.
+    return false;
+  }
+}
+
+function minnsRöst(cid, svar) {
+  try {
+    localStorage.setItem(`${RÖSTNYCKEL}:${cid}`, svar);
+  } catch {
+    /* strunt samma – rösten är redan räknad på servern */
+  }
+}
+
+function tacka(text) {
+  feedbackKnappar.forEach((b) => (b.hidden = true));
+  feedbackTack.textContent = text;
+  feedbackTack.hidden = false;
+}
+
+function visaFeedback(cid) {
+  if (!feedbackEl) return;
+  feedbackEl.dataset.cmp = String(cid);
+  if (harRöstat(cid)) {
+    tacka('Tack för ditt svar!');
+  } else {
+    feedbackKnappar.forEach((b) => {
+      b.hidden = false;
+      b.disabled = false;
+    });
+    feedbackTack.hidden = true;
+  }
+  feedbackEl.hidden = false;
+}
+
+feedbackKnappar.forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    const cid = feedbackEl.dataset.cmp;
+    const svar = btn.dataset.svar;
+    if (!cid) return;
+    feedbackKnappar.forEach((b) => (b.disabled = true));
+    try {
+      const res = await anrop('/api/feedback', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ cmp: Number(cid), svar }),
+      });
+      if (res.offline || !res.ok) {
+        feedbackKnappar.forEach((b) => (b.disabled = false));
+        feedbackTack.textContent = 'Svaret kom inte fram. Försök igen.';
+        feedbackTack.hidden = false;
+        return;
+      }
+      minnsRöst(cid, svar);
+      tacka('Tack för ditt svar!');
+    } catch {
+      feedbackKnappar.forEach((b) => (b.disabled = false));
+    }
+  });
+});
 
 function statusClass(r) {
   if (r.result.status === 1) return 'ok';
@@ -355,6 +436,7 @@ async function loadReceipt(params, { silent = false } = {}) {
   // Löparen ser då ingenting hända och trycker igen – på ett tak om fem.
   if (!(silent && mejlPågår)) renderReceipt(data);
   current = { cmp: data.competition.id, id: data.runner.id };
+  visaFeedback(data.competition.id);
 
   // Delar löparen sitt kvitto ska mottagaren hamna på samma tävling (KRAV-18)
   history.replaceState(
