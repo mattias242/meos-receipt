@@ -209,6 +209,28 @@ jämförs mot vad tjänsten svarar. Testsviten visar att koden gör vad den ska 
 det här visar om den gör rätt sak på riktig data, vilket är hur flera av de
 allvarligaste felen i projektet har hittats.
 
+### Inför en stor tävling
+
+Testsviten kör med en handfull löpare och säger ingenting om hur tjänsten
+beter sig när tusen personer går i mål inom en timme:
+
+```bash
+node tools/lasttest.mjs 1000 20      # antal löpare, antal klasser
+```
+
+Verktyget bygger en syntetisk tävling i den storleken – med klasser, klubbar
+och radiotider, annars blir sändningen bara en bråkdel av sin verkliga
+storlek – skickar den styckad så som MeOS gör, och mäter sändningens storlek
+mot 32 MB-taket, hur länge sparningen blockerar eventloopen, svarstiderna för
+kvitto, PDF och sökning medan MeOS sänder, samt **var läsgränsen tar**.
+
+Det sista är det som brukar överraska. `READ_LIMIT` räknar olika löpare per
+klient-IP, och mobiloperatörer lägger många abonnenter bakom samma adress. Med
+standardvärdet `1000` och tusen deltagare är marginalen noll, och söker
+löparna på namn i stället för att skanna QR-koden – varje träff kostar en
+identitet – tar taket redan vid drygt 800. Verktyget säger vilket värde som
+behövs.
+
 ### Om något krånglar under tävlingen
 
 | Symtom | Trolig orsak |
