@@ -169,6 +169,13 @@ MeOS resultatautomat ─IOF XML 3.0──▶ POST /iof ──┘   (minne + JSON
   nollställas vid varje uppdatering – samma fälla som mejlformuläret redan
   måste rädda undan påbörjad text ur. Den hör dessutom inte hemma i remsan:
   kvittot ska se likadant ut på skärm, i utskrift och i PDF.
+- **`competing` är tre-värt och bara `true` betyder något** (KRAV-24). Vid
+  fri starttid är `st` 0 tills brickan lästs, så `competing === true` är det
+  enda som skiljer den som är ute på banan från den som inte startat. `false`
+  och avsaknad (`null`) ska bete sig precis som före KRAV-24 – annars ändras
+  beteendet för all sparad data och för hela IOF-flödet, där fältet aldrig
+  sätts. Fältet får inte röra placeringsräkningen: "utom tävlan" är status 15,
+  och nämnaren delas med KRAV-21:s `antalStartande` i `server.js`.
 - **Statuskoder** är MeOS numeriska koder (`STATUS_TEXT` i `lib/receipt.js`);
   IOF-status mappas mot dem via `IOF_STATUS_TO_STAT` i `lib/iof.js`.
 - **Sparningen blockerar eventloopen** och gör det med hela databasen, inte

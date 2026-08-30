@@ -148,3 +148,32 @@ export function mopCompleteMinimal({ name = 'Nyare tävlingen', date = '2026-09-
   <competition date="${date}" organizer="Testklubben OK">${name}</competition>
 </MOPComplete>`;
 }
+
+/**
+ * Fri starttid (KRAV-24): en tävling utan tilldelade starttider. `st` är 0
+ * tills brickan lästs, så `st > 0` säger ingenting om vem som är ute på banan.
+ * MOP:s `competing` är då enda ledtråden, och den är tre-värd: sätts attributet
+ * inte alls vet MeOS inte, och kvittot ska bete sig precis som förut.
+ *   51 Ida Isaksson    (301301) ute på banan: competing="true", ingen starttid
+ *   52 Johan Jonsson   (302302) competing="false" – inte ute, ingen starttid
+ *   53 Karin Karlsson  (303303) competing saknas (okänt), ingen starttid
+ *   54 Lars Larsson    (304304) godkänd med competing="true" – stat äger texten
+ */
+export const MOP_FRI_STARTTID = `<?xml version="1.0" encoding="UTF-8"?>
+<MOPComplete xmlns="http://www.melin.nu/mop">
+  <competition date="2026-09-05" organizer="Testklubben OK">Fristarten</competition>
+  <cls id="9" ord="1">Öppen motion</cls>
+  <org id="5" nat="SWE">OK Skogen</org>
+  <cmp id="51" card="301301" competing="true">
+    <base org="5" cls="9" stat="0" st="0" rt="0">Ida Isaksson</base>
+  </cmp>
+  <cmp id="52" card="302302" competing="false">
+    <base org="5" cls="9" stat="0" st="0" rt="0">Johan Jonsson</base>
+  </cmp>
+  <cmp id="53" card="303303">
+    <base org="5" cls="9" stat="0" st="0" rt="0">Karin Karlsson</base>
+  </cmp>
+  <cmp id="54" card="304304" competing="true">
+    <base org="5" cls="9" stat="1" st="360000" rt="21000">Lars Larsson</base>
+  </cmp>
+</MOPComplete>`;

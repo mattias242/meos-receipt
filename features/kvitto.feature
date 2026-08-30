@@ -1,5 +1,5 @@
 # language: sv
-# KRAV-3, KRAV-4, KRAV-7, KRAV-19 (docs/KRAV.md)
+# KRAV-3, KRAV-4, KRAV-7, KRAV-19, KRAV-24 (docs/KRAV.md)
 Egenskap: Digitalt kvitto via bricknummer
   Som löpare
   vill jag se min stämplingsutläsning i mobilen genom att ange mitt SportIdent-nummer
@@ -63,3 +63,37 @@ Egenskap: Digitalt kvitto via bricknummer
     När jag hämtar kvittot för bricka 123456
     Så blir svaret en träfflista med 2 löpare
     Och träfflistan innehåller "Anna Andersson" och "Erik Ek"
+
+  # KRAV-24: vid fri starttid finns ingen tilldelad starttid, så `st > 0` kan
+  # inte avgöra vem som är ute på banan. MOP:s `competing` är tre-värt och
+  # bara `true` säger något vi inte redan vet.
+  Scenario: Löpare med fri starttid är ute på banan trots att starttid saknas
+    Givet att MeOS har skickat en tävling med fri starttid
+    När jag hämtar kvittot för bricka 301301
+    Så visar kvittot status "Ute på banan"
+    Och kvittot visar ingen starttid
+    Och kvittot visar ingen löptid
+
+  Scenario: Löpare som MeOS inte räknar som tävlande visas som ej startad
+    Givet att MeOS har skickat en tävling med fri starttid
+    När jag hämtar kvittot för bricka 302302
+    Så visar kvittot status "Ej startat"
+
+  Scenario: Utan besked från MeOS visas ej startad som förut
+    Givet att MeOS har skickat en tävling med fri starttid
+    När jag hämtar kvittot för bricka 303303
+    Så visar kvittot status "Ej startat"
+
+  Scenario: Statusen från MeOS gäller före uppgiften om att löparen tävlar
+    Givet att MeOS har skickat en tävling med fri starttid
+    När jag hämtar kvittot för bricka 304304
+    Så visar kvittot status "Godkänd"
+    Och kvittot visar starttid "10:00:00" och måltid "10:35:00"
+
+  # KRAV-24: placeringen räknas på MeOS status, inte på `competing`. En löpare
+  # som räknas bort ur nämnaren skulle flytta alla andras placeringar, och
+  # kvittot ska stämma med resultatlistan på arenan.
+  Scenario: Uppgiften om att löparen tävlar påverkar inte placeringsräkningen
+    Givet att MeOS har skickat en tävling med fri starttid
+    När jag hämtar kvittot för bricka 304304
+    Så visar kvittot placering 1 av 1 i mål bland 4 i klassen

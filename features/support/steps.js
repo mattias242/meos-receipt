@@ -12,6 +12,7 @@ import {
   mopCompleteMinimal,
   mopCompleteManyRunners,
   mopChunkedSend,
+  MOP_FRI_STARTTID,
 } from '../../test/fixtures/mop.js';
 import { IOF_RESULTLIST } from '../../test/fixtures/iof.js';
 import { createMailer } from '../../lib/mailer.js';
@@ -149,6 +150,13 @@ Given(
     assert.equal(await postMop(this, xml, { competition: String(cmp) }), 'OK');
   }
 );
+
+// KRAV-24: fri starttid – ingen löpare har tilldelad starttid, och `competing`
+// är det enda MeOS säger om vem som är ute på banan. Egen tävling, så att
+// nämnaren i de andra scenariernas placeringar inte rubbas.
+Given('att MeOS har skickat en tävling med fri starttid', async function () {
+  assert.equal(await postMop(this, MOP_FRI_STARTTID, { competition: '9' }), 'OK');
+});
 
 Given('att MeOS har skickat en tävling med {int} löpare', async function (n) {
   assert.equal(await postMop(this, mopCompleteManyRunners(n), { competition: '3' }), 'OK');
@@ -608,6 +616,18 @@ Then(
   function (place, after) {
     assert.equal(this.res.body.result.place, place);
     assert.equal(this.res.body.result.after, after);
+  }
+);
+
+// KRAV-24: nämnaren är antalet i klassen som MeOS status räknar som startande.
+// Den ska inte kunna flyttas av `competing`, för då stämmer inte kvittot med
+// resultatlistan på arenan.
+Then(
+  'visar kvittot placering {int} av {int} i mål bland {int} i klassen',
+  function (place, finished, total) {
+    assert.equal(this.res.body.result.place, place);
+    assert.equal(this.res.body.result.finished, finished);
+    assert.equal(this.res.body.result.total, total);
   }
 );
 
