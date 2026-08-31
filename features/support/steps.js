@@ -14,7 +14,7 @@ import {
   mopChunkedSend,
   MOP_FRI_STARTTID,
 } from '../../test/fixtures/mop.js';
-import { IOF_RESULTLIST } from '../../test/fixtures/iof.js';
+import { IOF_RESULTLIST, IOF_BOMTID } from '../../test/fixtures/iof.js';
 import { createMailer } from '../../lib/mailer.js';
 
 setDefaultTimeout(10000);
@@ -187,6 +187,13 @@ Given('att all data har sparats till disk', function () {
 
 Given('att resultatautomaten har laddat upp en resultatfil', async function () {
   assert.equal(await postIof(this, IOF_RESULTLIST), 'OK');
+});
+
+// KRAV-25: bomanalysen behöver en hel klass med sträcktider, och egna
+// bricknummer så att de andra fixturernas placeringar inte rubbas. Egen
+// tävling (5) av samma skäl.
+Given('att resultatautomaten har laddat upp en resultatfil för bomanalys', async function () {
+  assert.equal(await postIof(this, IOF_BOMTID, { competition: '5' }), 'OK');
 });
 
 // ---------------------------------------------------------------------------
@@ -844,5 +851,63 @@ Then('avvisas rösten', function () {
   assert.ok(
     this.röst.status >= 400,
     `rösten togs emot med ${this.röst.status}: ${JSON.stringify(this.röst.body)}`
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Tidsförlust per kontroll (KRAV-25)
+//
+// Sträckan slås upp på kontrollnumret och inte på etiketten, av samma skäl som
+// KRAV-19-steget: numret är det löparen känner igen.
+// ---------------------------------------------------------------------------
+
+function splitFörKontroll(world, control) {
+  const split = world.res.body.splits.find((s) => s.control === control);
+  assert.ok(split, `kontroll ${control} saknas i kvittot`);
+  return split;
+}
+
+Then('visar sträckan för kontroll {int} tidsförlusten {string}', function (control, loss) {
+  assert.equal(splitFörKontroll(this, control).loss, loss);
+});
+
+Then('visar sträckan för kontroll {int} ingen tidsförlust', function (control) {
+  const split = splitFörKontroll(this, control);
+  assert.equal(
+    split.loss,
+    '',
+    `kontroll ${control} fick tidsförlusten ${split.loss} – sträckan ligger på klassens nivå`
+  );
+});
+
+Then('visar kvittot den totala tidsförlusten {string}', function (total) {
+  assert.equal(this.res.body.timeLoss?.total, total);
+});
+
+Then('visar kvittot inga tidsförluster', function () {
+  const med = this.res.body.splits.filter((s) => s.loss);
+  assert.deepEqual(
+    med.map((s) => `${s.name}: ${s.loss}`),
+    [],
+    'ingen sträcka skulle få en tidsförlust'
+  );
+  assert.equal(this.res.body.timeLoss?.total, '');
+});
+
+Then('säger kvittot att underlag saknas för bomanalys', function () {
+  assert.equal(this.res.body.timeLoss?.available, false);
+  assert.match(
+    String(this.res.body.notes?.timeLoss || ''),
+    /[Uu]nderlag saknas/,
+    `kvittot förklarar inte den tomma bomkolumnen: ${JSON.stringify(this.res.body.notes)}`
+  );
+});
+
+// Radioflödet har ett par kontroller och sträckor på en kvart. Där är
+// bomanalysen meningslös, och en ursäkt under varje kvitto vore brus.
+Then('nämner kvittot ingen bomanalys', function () {
+  assert.ok(
+    !this.res.body.notes?.timeLoss,
+    `noteringen ska bara visas när analysen kunde ha gjorts: ${JSON.stringify(this.res.body.notes)}`
   );
 });
