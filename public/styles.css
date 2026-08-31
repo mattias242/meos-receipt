@@ -245,6 +245,38 @@ main .lead {
   .receipt table { font-size: 0.76rem; }
 }
 
+/* Bomkolumnen (KRAV-25) är en FEMTE kolumn i en tabell vars fyra redan fyllde
+   pappret exakt. Reglerna nedan gäller BARA tabeller som faktiskt har den, så
+   den vanliga fyrkolumnstabellen är helt oförändrad – uppmätt till 0 px spill
+   vid 320 px, som före kravet. Det är det som gör kolumnen möjlig att bära: i
+   skarp data har klasserna 3-9 löpare, så de flesta kvitton får ingen
+   bomanalys och därmed ingen femte kolumn.
+
+   Uppmätt i Chrome (enhetsemulering) på ett kvitto med 22 stämplingar och ett
+   lopp på 2:46:40, alltså h:mm:ss i både Total och Klocka. Spillet är hur
+   långt utanför kvittopappret sista kolumnen målas:
+
+     360 px  papper 306 px  fyra kolumner 306, fem kolumner 350  ->  44 px spill
+     360 px  0.8rem                                             ->   0 px
+     320 px  papper 266 px  0.68rem                             ->   0 px
+     400 px  papper 346 px  0.8rem                              ->   0 px
+
+   Testsviten kan inte fånga det här: den har ingen layoutmotor, så felet syns
+   bara i en webbläsare. Mät om vid ändring, gissa inte.
+
+   Måttet är taget mot det breda men verkliga fallet: klocktiden är alltid
+   HH:MM:SS, totaltiden h:mm:ss och bomtiden mm:ss. En bomtid över en timme
+   spiller fortfarande 8 px vid 360 och 6 px vid 320 – då har löparen tappat
+   en timme på en enda sträcka, och kvittots typografi är inte det som är fel
+   den dagen. Att krympa alla 360-pixelsskärmar till 10,9 px text för det
+   fallet vore samma misstag som kommentaren ovan varnar för. */
+@media (max-width: 430px) {
+  .receipt table.medBom { font-size: 0.8rem; }
+}
+@media (max-width: 340px) {
+  .receipt table.medBom { font-size: 0.68rem; }
+}
+
 .receipt .bigTime {
   text-align: center;
   font-size: 1.9rem;

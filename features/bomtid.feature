@@ -38,7 +38,7 @@ Egenskap: Tidsförlust per kontroll
 
   Scenario: Felstämplad löpare får tidsförlust på de sträckor hon har giltig tid på
     När jag hämtar kvittot i tävling 5 för bricka 900007
-    Så visar sträckan för kontroll 32 tidsförlusten "3:03"
+    Så visar sträckan för kontroll 32 tidsförlusten "2:51"
 
   Scenario: Sträckan över en saknad kontroll ger ingen tidsförlust
     När jag hämtar kvittot i tävling 5 för bricka 900007

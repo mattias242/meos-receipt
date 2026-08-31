@@ -156,8 +156,10 @@ export const IOF_RESULTLIST = `<?xml version="1.0" encoding="UTF-8"?>
  *   tid och bomtiden noll. Med indexnyckling i stället för kontrollkodspar
  *   hade han felaktigt fått 139 s.
  * - Frida Fel       (900007) felstämplad: 45 saknas, och hon är dessutom
- *   långsam till 32. Facit: 183 s (3:03) på kontroll 32, och INGEN bomtid på
- *   kontroll 50 trots att den sträckan spänner över den saknade kontrollen.
+ *   långsam till 32. Facit: 1711 tiondelar (2:51) på kontroll 32, och INGEN
+ *   bomtid på kontroll 50 trots att den sträckan spänner över den saknade
+ *   kontrollen – den nyckeln delar hon med ingen, så det finns inget att
+ *   jämföra med.
  * - Uno Utgången    (900008) utgått med två kontroller tagna. Bidrar till
  *   baslinjen men har själv för få sträckor för att analyseras.
  * - Olle Opålitlig  (900009) kontroll 32 har en tid långt utanför loppet.

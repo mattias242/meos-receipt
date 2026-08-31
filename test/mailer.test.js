@@ -41,6 +41,34 @@ const RECEIPT = {
   updated: '2026-08-06T14:42:36.625Z',
 };
 
+/**
+ * KRAV-25: totalen räcker i sammanfattningen. Vilken kontroll tiden gick på
+ * står i den bifogade PDF:en – en lista med kontroller i förhandsvisningen på
+ * låsskärmen säger ingenting utan tabellen omkring sig.
+ */
+test('sammanfattningen nämner den totala tidsförlusten', async () => {
+  const sent = [];
+  const mailer = createMailer({
+    from: 'a@b.se',
+    transport: { async sendMail(m) { sent.push(m); return { messageId: '1' }; } },
+  });
+
+  await mailer.sendReceipt({
+    to: 'loparen@example.org',
+    receipt: { ...RECEIPT, timeLoss: { available: true, total: '2:37' } },
+  });
+  assert.ok(
+    sent[0].text.includes('Total tidsförlust: 2:37'),
+    `tidsförlusten saknas i mejlet:\n${sent[0].text}`
+  );
+
+  await mailer.sendReceipt({ to: 'loparen@example.org', receipt: RECEIPT });
+  assert.ok(
+    !sent[1].text.includes('tidsförlust'),
+    'utan bomanalys ska raden inte finnas alls'
+  );
+});
+
 test('sendReceipt bifogar kvittot som PDF och sammanfattar i texten', async () => {
   const sent = [];
   const mailer = createMailer({

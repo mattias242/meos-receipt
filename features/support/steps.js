@@ -840,8 +840,18 @@ Then(
 );
 
 // Rösten får inte gå att spåra till en löpare. Fixturens id:n är 31–35.
+//
+// Tidsstämplarna måste bort före jämförelsen. `forsta` och `senaste` är ISO-
+// tider, och i "10:31:05" står 31 mellan två kolon – alltså med ordgräns på
+// båda sidor. Testet var därför rött de sekunder och minuter som råkade ligga
+// mellan 31 och 35, ungefär var tolfte körning, och sa då att ett löpar-id
+// röjts när det som hittats var klockan. Att stryka tidsstämplarna behåller
+// frågan testet ställer: finns något löpar-id kvar i det som sparas?
 Then('innehåller statistiken inga löpar-id', async function () {
-  const rå = await (await fetch(`${this.base}/api/statistik`)).text();
+  const rå = (await (await fetch(`${this.base}/api/statistik`)).text()).replace(
+    /"(forsta|senaste)":"[^"]*"/g,
+    '"$1":""'
+  );
   for (const id of [31, 32, 33, 34, 35]) {
     assert.doesNotMatch(rå, new RegExp(`\\b${id}\\b`), `löpar-id ${id} röjdes: ${rå}`);
   }

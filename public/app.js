@@ -188,6 +188,12 @@ function statusClass(r) {
 
 function renderReceipt(r) {
   const res = r.result;
+  // KRAV-25: bomkolumnen ritas bara när analysen kunnat göras. Tabellen har
+  // fyra kolumner som redan är hårt mätta mot smala skärmar, och i skarp data
+  // är klasserna oftast för små för en analys – en femte kolumn som alltid
+  // stod där hade kostat bredd utan att säga något.
+  const visaBom = !!r.timeLoss?.available;
+
   const rows = r.splits
     .map((s) => {
       const badge =
@@ -205,6 +211,7 @@ function renderReceipt(r) {
         <td class="num">${esc(s.leg) || tom}</td>
         <td class="num">${esc(s.elapsed) || tom}</td>
         <td class="num">${esc(s.clock) || tom}</td>
+        ${visaBom ? `<td class="num loss">${esc(s.loss)}</td>` : ''}
       </tr>`;
     })
     .join('');
@@ -213,6 +220,7 @@ function renderReceipt(r) {
   const noteRows = [
     notes.unreliableTimes ? `<div class="note">* ${esc(notes.unreliableTimes)}</div>` : '',
     notes.extraPunches ? `<div class="note">${esc(notes.extraPunches)}</div>` : '',
+    notes.timeLoss ? `<div class="note">${esc(notes.timeLoss)}</div>` : '',
   ].join('');
 
   const place = res.place
@@ -252,10 +260,11 @@ function renderReceipt(r) {
     ${
       r.splits.length
         ? `<hr />
-      <table>
-        <tr class="splitsHead"><th scope="col">Kontroll</th><th scope="col" class="num">Sträcka</th><th scope="col" class="num">Total</th><th scope="col" class="num">Klocka</th></tr>
+      <table class="splits${visaBom ? ' medBom' : ''}">
+        <tr class="splitsHead"><th scope="col">Kontroll</th><th scope="col" class="num">Sträcka</th><th scope="col" class="num">Total</th><th scope="col" class="num">Klocka</th>${visaBom ? '<th scope="col" class="num">Bom</th>' : ''}</tr>
         ${rows}
       </table>
+      ${r.timeLoss?.total ? `<div class="note">Total tidsförlust: ${esc(r.timeLoss.total)}</div>` : ''}
       ${noteRows}`
         : res.startTime
           ? '<hr /><div class="noPunches">Inga stämplingar registrerade</div>'

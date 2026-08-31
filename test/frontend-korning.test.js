@@ -482,3 +482,55 @@ test('en delad länk slår upp löparen i rätt tävling', async () => {
     `uppslaget band inte tävlingen – mottagaren kan få fel löpare: ${kvittoanrop}`
   );
 });
+
+/**
+ * KRAV-25: bomkolumnen är den femte i en tabell vars fyra kolumner redan var
+ * mätta mot smala skärmar. Den ritas därför bara när analysen kunnat göras –
+ * i skarp data har klasserna 3-9 löpare, så det tomma fallet är normalfallet.
+ * Klassen `medBom` är det CSS:en hänger sin egen teckenstorlek på; utan den
+ * målas tabellen utanför kvittopappret, och det syns inte i något test
+ * eftersom testsviten inte har någon layoutmotor.
+ */
+const KVITTO_MED_BOM = {
+  ...KVITTO_MED_KLOCKFEL,
+  splits: [
+    { control: 31, name: '31', status: 'ok', unreliable: false, clock: '10:05:00', elapsed: '5:00', leg: '5:00', loss: '' },
+    { control: 45, name: '45', status: 'ok', unreliable: false, clock: '10:12:00', elapsed: '12:00', leg: '7:00', loss: '2:37' },
+  ],
+  notes: {},
+  timeLoss: { available: true, total: '2:37' },
+};
+
+test('bomkolumnen ritas med rubrik och värde när analysen finns', async () => {
+  const html = await laddaKvitto(KVITTO_MED_BOM);
+  assert.ok(html.includes('class="splits medBom"'), `tabellen saknar medBom-klassen:\n${html}`);
+  assert.ok(html.includes('>Bom<'), 'kolumnrubriken saknas');
+  assert.ok(html.includes('>2:37<'), 'bomtiden saknas i tabellen');
+  assert.ok(html.includes('Total tidsförlust: 2:37'), 'totalen saknas under tabellen');
+
+  const rader = html.split('</tr>').filter((r) => r.includes('splitsBody'));
+  for (const rad of rader) {
+    const celler = rad.split('<td').length - 1;
+    assert.equal(celler, 4, `varje rad ska ha fyra td utöver radrubriken:\n${rad}`);
+  }
+});
+
+test('bomkolumnen utelämnas helt när analysen inte kunnat göras', async () => {
+  const html = await laddaKvitto({
+    ...KVITTO_MED_BOM,
+    timeLoss: { available: false, total: '' },
+    notes: { timeLoss: 'Underlag saknas för bomanalys – för få i klassen har gått i mål.' },
+  });
+  assert.ok(!html.includes('medBom'), 'klassen ska inte sättas utan analys');
+  assert.ok(!html.includes('>Bom<'), 'kolumnrubriken ska inte ritas utan analys');
+  assert.ok(!html.includes('2:37'), 'ingen bomtid ska visas när analysen inte gjorts');
+  assert.ok(html.includes('Underlag saknas'), `förklaringen till den tomma kolumnen saknas:\n${html}`);
+});
+
+// Ett kvitto från tiden före KRAV-25, eller från radioflödet, saknar fälten
+// helt. Renderingen får inte spricka på det.
+test('ett kvitto utan bomfält renderas som förut', async () => {
+  const html = await laddaKvitto(KVITTO_MED_KLOCKFEL);
+  assert.ok(!html.includes('medBom'));
+  assert.ok(!html.includes('undefined'), `odefinierade fält läckte ut i tabellen:\n${html}`);
+});

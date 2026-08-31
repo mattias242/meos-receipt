@@ -167,6 +167,68 @@ test('en lång bana blir en obruten remsa som växer på höjden', () => {
   assert.ok(lang.h > kort.h * 3, `remsan växte inte: ${kort.h} -> ${lang.h}`);
 });
 
+/**
+ * KRAV-25: bomkolumnen är den femte i en tabell som redan använde alla 45
+ * tecknen. Testet mäter det breda fallet – ett lopp över en timme, så att
+ * varje tidskolumn blir h:mm:ss – eftersom det är där bredden avgörs.
+ */
+const BOMKVITTO = {
+  ...RECEIPT,
+  timeLoss: { available: true, total: '2:37' },
+  splits: [
+    { control: 150, name: '150 (Radio 1)', status: 'ok', clock: '10:07:30', elapsed: '1:07:30', leg: '1:02:03', loss: '1:02:03' },
+    { control: 45, name: '45', status: 'missing', clock: '', elapsed: '', leg: '', loss: '' },
+    { control: null, name: 'Mål', status: 'ok', clock: '10:35:00', elapsed: '2:05:50', leg: '5:00', loss: '' },
+  ],
+};
+
+test('bomkolumnen ritas när analysen kunnat göras', () => {
+  const text = textOf(receiptLines(BOMKVITTO));
+  assert.match(text, /Bom/, `bomrubriken saknas:\n${text}`);
+  assert.match(text, /1:02:03/, 'bomtiden saknas');
+  assert.match(text, /Total tidsförlust: 2:37/);
+});
+
+test('bomkolumnen utelämnas när analysen inte kunnat göras', () => {
+  const utan = { ...BOMKVITTO, timeLoss: { available: false, total: '' } };
+  const rader = receiptLines(utan);
+  const rubrik = rader.map((l) => l.text).find((t) => t.includes('Kontroll'));
+  assert.ok(!rubrik.includes('Bom'), `bomkolumnen skulle inte ritas: ${rubrik}`);
+  // Utan kolumnen ska kontrollnamnet få tillbaka sitt fjortonde tecken.
+  assert.ok(
+    rader.some((l) => l.text.startsWith('150 (Radio 1)')),
+    'kontrollnamnet ska rymmas när bomkolumnen inte tar plats'
+  );
+});
+
+test('förklaringen till en tom bomkolumn kommer med i PDF:en', () => {
+  const text = textOf(
+    receiptLines({
+      ...BOMKVITTO,
+      timeLoss: { available: false, total: '' },
+      notes: { timeLoss: 'Underlag saknas för bomanalys – för få i klassen har gått i mål.' },
+    })
+  );
+  assert.match(text, /Underlag saknas för bomanalys/);
+});
+
+test('inga rader sticker utanför remsans bredd med bomkolumnen', () => {
+  for (const line of receiptLines(BOMKVITTO)) {
+    assert.ok(line.text.length <= 45, `för bred rad (${line.text.length}): ${line.text}`);
+  }
+});
+
+/**
+ * KRAV-19 gäller även när bomkolumnen tar ett tecken från kontrollkolumnen:
+ * det är namnet som får falla bort, aldrig koden eller SAKNAS/EXTRA.
+ */
+test('kontrollkoden överlever att bomkolumnen krymper kontrollkolumnen', () => {
+  const rader = receiptLines(BOMKVITTO).map((l) => l.text);
+  const saknad = rader.find((t) => t.includes('SAKNAS'));
+  assert.ok(saknad, `raden med SAKNAS saknas:\n${rader.join('\n')}`);
+  assert.ok(saknad.startsWith('45 SAKNAS'), `koden eller markören klipptes: ${saknad}`);
+});
+
 test('inga rader sticker utanför remsans bredd', () => {
   const brett = {
     ...RECEIPT,
@@ -280,7 +342,9 @@ const INTE_TEXT = {
   'res.preliminary': 'flagga; texten den ger prövas separat nedan',
   's.status': 'flagga; ger märkningen SAKNAS/EXTRA, prövad i eget test',
   's.unreliable': 'flagga; ger markören *, prövad i eget test',
-  'r.notes': 'behållare; de två texterna prövas i eget test',
+  'r.notes': 'behållare; texterna prövas i egna test',
+  'r.timeLoss': 'behållare, inget värde',
+  'r.timeLoss.available': 'flagga; styr om bomkolumnen ritas, prövad i eget test',
   'r.updated': 'formateras olika på sidan och i PDF:en; raden prövas nedan',
 };
 
@@ -314,7 +378,8 @@ function kvittoMedMarkörer(preliminärt) {
       place: preliminärt ? null : 8, prelPlace: preliminärt ? 7 : null,
       finished: 9, total: 12, after: '+44:44', teamTime: '55:55',
     },
-    splits: [{ control: 31, name: 'KONTROLLNAMN', status: 'ok', clock: '12:12:12', elapsed: '13:13', leg: '14:14' }],
+    splits: [{ control: 31, name: 'KONTROLLNAMN', status: 'ok', clock: '12:12:12', elapsed: '13:13', leg: '14:14', loss: '16:16' }],
+    timeLoss: { available: true, total: '17:17' },
     updated: '2026-08-06T14:42:36.625Z',
     updatedAgeSeconds: 4000,
   };
@@ -329,7 +394,8 @@ test('PDF:en visar allt kvittosidan visar', () => {
     'res.time': '33:33', 'res.place': '8', 'res.prelPlace': '7', 'res.finished': '9',
     'res.after': '+44:44', 'res.teamTime': '55:55', 'res.startTime': '11:11:11',
     'res.finishTime': '22:22:22', 's.name': 'KONTROLLNAMN', 's.clock': '12:12:12',
-    's.elapsed': '13:13', 's.leg': '14:14',
+    's.elapsed': '13:13', 's.leg': '14:14', 's.loss': '16:16',
+    'r.timeLoss.total': '17:17',
   };
 
   const text = (prel) => receiptLines(kvittoMedMarkörer(prel)).map((l) => l.text).join('\n');

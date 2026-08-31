@@ -78,6 +78,9 @@ MeOS resultatautomat ─IOF XML 3.0──▶ POST /iof ──┘   (minne + JSON
 - `lib/mailer.js` — utskick via Mailgun EU SMTP. Transporten injiceras, så
   tester kör mot en fejk och inget mejl lämnar maskinen. Innehåller även
   adressvalidering och takt-begränsaren som `server.js` använder.
+- `lib/bomtid.js` — tidsförlust per kontroll (KRAV-25), översatt från MeOS
+  `oClass::calculateSplits()` och `oRunner::getSplitAnalysis()`. Känner inte
+  MeOS-datamodellen: tar färdiga sträckor i tiondelar och lämnar tiondelar.
 - `lib/statistik.js` — hur tjänsten används, aggregerat per tävling (KRAV-21)
   och löparens tumme upp/ner (KRAV-22). Egen fil, `DATA_DIR/statistik.json`,
   läses med `GET /api/statistik`.
@@ -176,6 +179,28 @@ MeOS resultatautomat ─IOF XML 3.0──▶ POST /iof ──┘   (minne + JSON
   beteendet för all sparad data och för hela IOF-flödet, där fältet aldrig
   sätts. Fältet får inte röra placeringsräkningen: "utom tävlan" är status 15,
   och nämnaren delas med KRAV-21:s `antalStartande` i `server.js`.
+- **Bomtiden normeras med löparens egna sträckor, inte med banan.** MeOS
+  `getSplitAnalysis` delar med baslinjen summerad över hela banan, men MeOS
+  känner banan – vi känner bara stämplingarna, och sträckan över en saknad
+  kontroll får en nyckel nästan ingen delar. Används två olika nämnare kan
+  täljarens summa bli störst, och då kan bomtiden överstiga sin egen sträcka:
+  en löpare i Vinterrace 4 med sex saknade kontroller fick 11:12 på en sträcka
+  som tog 8:32. För den som sprungit hela banan är talen identiska. Bevakas av
+  `test/bomtid.test.js`.
+- **Bomtiden är inte "efter bäste på sträckan".** MeOS utskrift bär båda
+  måtten: `includeTimeLoss` (sträcktid minus ledartid) och bomanalysen. Bara
+  det senare räknar bort löparens egen hastighetsnivå, så att den som är jämnt
+  långsam får noll bom i stället för ett plus på varenda rad (KRAV-25).
+- **Sträckor nycklas på kontrollkodsparet, aldrig på radindex.** Vid gaffling
+  är två löpares tredje sträcka olika sträckor i skogen. En sträcka utan
+  baslinje lämnas dessutom utanför hela räkningen – räknas den med blir delta
+  löparens hela andel minus noll, alltså en jättebom.
+- **Bomkolumnen ritas bara när analysen kunnat göras.** Sträcktabellens fyra
+  kolumner fyllde redan både PDF-remsans 45 tecken och mobilskärmens bredd
+  exakt; vid 360 px målas fem kolumner 44 px utanför kvittopappret. I skarp
+  data har klasserna 3-9 löpare, så de flesta kvitton behåller fyra kolumner.
+  Skärmbredden syns inte i något test – testsviten har ingen layoutmotor – så
+  måtten i `public/styles.css` ska mätas om i webbläsare, inte gissas.
 - **Statuskoder** är MeOS numeriska koder (`STATUS_TEXT` i `lib/receipt.js`);
   IOF-status mappas mot dem via `IOF_STATUS_TO_STAT` i `lib/iof.js`.
 - **Sparningen blockerar eventloopen** och gör det med hela databasen, inte

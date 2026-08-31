@@ -263,3 +263,34 @@ test('en sträcka utan baslinje ger varken bomtid eller rubbar de andra', () => 
   assert.equal(ut[1], 0, 'sträckan utan baslinje ska inte få någon bomtid');
   assert.ok(ut[2] > 0, 'bommen på sträckan till 45 ska fortfarande hittas');
 });
+
+/**
+ * En bomtid kan aldrig vara större än sträckan den sitter på – man kan inte
+ * tappa mer tid på en sträcka än sträckan varade. Invarianten höll inte förut:
+ * nämnaren i `part` var banans baslinjesumma medan täljaren byggde på de
+ * sträckor löparen faktiskt har tid på, och för den som saknar kontroller är
+ * den senare den större. Uppmätt på Vinterrace 4: en löpare med sex saknade
+ * kontroller fick bomtiden 11:12 på en sträcka som tog 8:32.
+ *
+ * Testet härmar den formen: sträckorna över hålen delas med ingen, så deras
+ * baslinje blir löparens egen tid och drar upp summan.
+ */
+test('en bomtid är aldrig större än sträckan den sitter på', () => {
+  const medHål = [
+    { nyckel: 'S>75', tiondelar: 4100 },
+    { nyckel: '75>88', tiondelar: 2110 },
+    { nyckel: '88>65', tiondelar: 3460 },   // spänner över en saknad kontroll
+    { nyckel: '65>71', tiondelar: 5120 },   // och den här också
+    { nyckel: '71>M', tiondelar: 21800 },
+  ];
+  const referens = (skala) => medHål.map((s) => ({ ...s, tiondelar: Math.round(s.tiondelar * skala) }));
+  const bas = baslinjer([medHål, referens(0.5), referens(0.55), referens(0.6)]);
+
+  const ut = bomtider({ mina: medHål, baslinjer: bas });
+  ut.forEach((bom, k) => {
+    assert.ok(
+      bom <= medHål[k].tiondelar,
+      `bomtiden ${bom} överstiger sträckan ${medHål[k].tiondelar} på ${medHål[k].nyckel}`
+    );
+  });
+});
