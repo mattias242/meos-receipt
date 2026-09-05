@@ -57,6 +57,48 @@ if [ ! -f "$ENV_FIL" ]; then
   exit 1
 fi
 
+CONTAINER="${CONTAINER:-meos-kvitto}"
+
+DOCKER="${DOCKER:-}"
+if [ -z "$DOCKER" ]; then
+  if [ -x /var/packages/ContainerManager/target/usr/bin/docker ]; then
+    DOCKER=/var/packages/ContainerManager/target/usr/bin/docker
+  else
+    DOCKER=docker
+  fi
+fi
+
+# Står vi ens på servern? Katalogen heter likadant i en arbetskopia, så det
+# enda som skiljer maskinerna åt är att tjänsten faktiskt kör här. Kontrollen
+# görs FÖRE .env skrivs om: annars får utvecklingsmaskinen en bindning den
+# inte ska ha, medan den riktiga bindningen på servern står kvar orörd fast
+# utskriften just sagt att den ändrats.
+pa_servern() {
+  if ! "$DOCKER" info >/dev/null 2>&1; then
+    echo "Fel: ingen Docker-daemon svarar här." >&2
+    return 1
+  fi
+  if [ -z "$("$DOCKER" ps -a --filter "name=^${CONTAINER}$" --format '{{.Names}}' 2>/dev/null)" ]; then
+    echo "Fel: hittar ingen container \"$CONTAINER\" på den här maskinen." >&2
+    return 1
+  fi
+}
+
+if [ "$OMSTART" = "1" ] && ! pa_servern; then
+  cat >&2 <<EOF
+
+byt-tavling.sh ska köras på servern, i tjänstens katalog:
+
+  ssh <användare>@<nas-adress>
+  cd /volume2/web/meos-kvitto
+  ./tools/byt-tavling.sh $CID${VARDNAMN:+ $VARDNAMN}
+
+Ingenting har ändrats. Vill du bara skriva om .env här, utan att röra någon
+container, finns --utan-omstart.
+EOF
+  exit 1
+fi
+
 NUVARANDE="$(grep -m1 '^VARDNAMN_TAVLINGAR=' "$ENV_FIL" | cut -d= -f2- || true)"
 
 # Utan värdnamn i anropet går det bara att gissa om det finns exakt ett.
@@ -126,15 +168,6 @@ fi
 
 # --- Starta om och kontrollera ------------------------------------------------
 
-DOCKER="${DOCKER:-}"
-if [ -z "$DOCKER" ]; then
-  if [ -x /var/packages/ContainerManager/target/usr/bin/docker ]; then
-    DOCKER=/var/packages/ContainerManager/target/usr/bin/docker
-  else
-    DOCKER=docker
-  fi
-fi
-
 echo
 echo "Startar om containern …"
 "$DOCKER" compose up -d
@@ -155,5 +188,5 @@ for i in 1 2 3 4 5 6 7 8 9 10; do
 done
 
 echo "  Fel: fick \"$SVAR\", väntade 302 mot /t/$CID" >&2
-echo "  Kontrollera loggen: $DOCKER logs --tail 30 meos-kvitto" >&2
+echo "  Kontrollera loggen: $DOCKER logs --tail 30 $CONTAINER" >&2
 exit 1

@@ -178,6 +178,12 @@ Skriptet skriver om raden i `.env`, startar om containern och kontrollerar mot
 containern direkt att `/` skickas vidare till `/t/26091401`. Är flera värdnamn
 bundna anges vilket: `./tools/byt-tavling.sh 26091401 kvitto.klubben.se`.
 
+**Kör det på servern, inte i en arbetskopia.** Katalogen heter likadant på en
+utvecklingsmaskin, och där finns ingen container att starta om. Skriptet
+kontrollerar därför först att tjänsten kör på maskinen och avbryter annars utan
+att röra `.env` – förut skrev det om arbetskopians fil och rapporterade att
+bindningen ändrats, medan den riktiga bindningen stod kvar på servern.
+
 **Redigera inte `.env` för hand.** En andra `VARDNAMN_TAVLINGAR`-rad ser riktig
 ut men gör att den ena tyst vinner över den andra, och det märks först när
 löparen står i målfållan och ser fel tävling. Skriptet skriver om den befintliga

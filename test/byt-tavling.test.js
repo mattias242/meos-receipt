@@ -138,3 +138,72 @@ test('saknas .env sägs det rakt ut i stället för att en ny skapas', () => {
   assert.notEqual(r.status, 0);
   assert.equal(fs.existsSync(fil), false, 'en ny .env utan MEOS_PASSWORD hade hindrat starten');
 });
+
+/**
+ * Skriptet är ett *serverskript*, men ingenting hindrade att det kördes i en
+ * arbetskopia på en utvecklingsmaskin: katalogen heter likadant där. Då hann
+ * .env skrivas om innan `docker compose up -d` stupade på att det inte finns
+ * någon daemon – arbetskopian fick en bindning den inte skulle ha, och den
+ * riktiga bindningen på servern stod kvar orörd fast utskriften sagt att den
+ * ändrats. Hände skarpt 2026-09-04 inför Stenungsund-tävlingen.
+ *
+ * Kontrollen görs därför *före* filen rörs: svarar ingen Docker-daemon, eller
+ * finns inte tjänstens container på maskinen, ska .env vara oförändrad.
+ */
+
+/** En docker som svarar som vi säger åt den att svara. */
+function fejkDocker(dir, { daemon = true, container = true } = {}) {
+  const fil = path.join(dir, 'docker');
+  fs.writeFileSync(
+    fil,
+    [
+      '#!/bin/bash',
+      `[ "$1" = "info" ] && exit ${daemon ? 0 : 1}`,
+      `if [ "$1" = "ps" ]; then ${container ? 'echo meos-kvitto' : 'true'}; exit 0; fi`,
+      'exit 0',
+    ].join('\n')
+  );
+  fs.chmodSync(fil, 0o755);
+  return fil;
+}
+
+/** Kör skriptet skarpt – alltså med omstartssteget – mot en fejkad docker. */
+function korMedDocker(fil, args, lage) {
+  const r = spawnSync('bash', [SKRIPT, ...args], {
+    env: { ...process.env, ENV_FIL: fil, DOCKER: fejkDocker(path.dirname(fil), lage) },
+    encoding: 'utf8',
+  });
+  return { kod: r.status, ut: (r.stdout || '') + (r.stderr || ''), env: fs.readFileSync(fil, 'utf8') };
+}
+
+test('svarar ingen Docker-daemon vägrar skriptet och lämnar .env orörd', () => {
+  const fore = GRUND + 'VARDNAMN_TAVLINGAR=kvitto.klubben.se=26082002\n';
+  const fil = medEnv(fore);
+  const r = korMedDocker(fil, ['26091401', 'kvitto.klubben.se'], { daemon: false });
+  assert.notEqual(r.kod, 0);
+  assert.equal(r.env, fore, '.env ska inte ändras på en maskin som inte är servern');
+  assert.match(r.ut, /servern/i, 'meddelandet ska säga var skriptet hör hemma');
+});
+
+test('finns inte containern på maskinen vägrar skriptet och lämnar .env orörd', () => {
+  const fore = GRUND + 'VARDNAMN_TAVLINGAR=kvitto.klubben.se=26082002\n';
+  const fil = medEnv(fore);
+  const r = korMedDocker(fil, ['26091401', 'kvitto.klubben.se'], { container: false });
+  assert.notEqual(r.kod, 0);
+  assert.equal(r.env, fore, '.env ska inte ändras när tjänsten inte finns här');
+  assert.match(r.ut, /servern/i);
+});
+
+// Luckan för den som medvetet bara vill ändra filen – och det testerna ovan
+// använder för att slippa en container.
+test('--utan-omstart går förbi maskinkontrollen', () => {
+  const fil = medEnv(GRUND);
+  const r = spawnSync('bash', [SKRIPT, '--utan-omstart', '26091401', 'kvitto.klubben.se'], {
+    env: { ...process.env, ENV_FIL: fil, DOCKER: fejkDocker(path.dirname(fil), { daemon: false }) },
+    encoding: 'utf8',
+  });
+  assert.equal(r.status, 0, (r.stdout || '') + (r.stderr || ''));
+  assert.deepEqual(bindningar(fs.readFileSync(fil, 'utf8')), [
+    'VARDNAMN_TAVLINGAR=kvitto.klubben.se=26091401',
+  ]);
+});
